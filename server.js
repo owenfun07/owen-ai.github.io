@@ -46,5 +46,35 @@ app.post("/chat", async (req, res) => {
   }
 });
 
+// Temporary test route to check Gemini API key
+app.get("/test-gemini", async (req, res) => {
+  try {
+    const payload = {
+      contents: [
+        { role: "system", parts: [{ text: "You are a test AI." }] },
+        { role: "user", parts: [{ text: "Say hello in a single sentence." }] }
+      ],
+      generationConfig: { maxOutputTokens: 50 }
+    };
+
+    const response = await fetch(MODEL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GEMINI_API_KEY}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await response.json();
+    const aiText = json?.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini.";
+
+    res.send(`Gemini test success: "${aiText}"`);
+  } catch (err) {
+    console.error(err);
+    res.send(`Gemini test failed: ${err.message}`);
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
