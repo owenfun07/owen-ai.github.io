@@ -1,0 +1,40 @@
+<div style="padding:20px; font-family:Arial; background:#f4f4f9; height:100vh; display:flex; flex-direction:column;">
+  <h1 style="color:#ff4081;">Owen.Ai</h1>
+
+  <div id="chatbox" style="flex:1; overflow-y:auto; border:1px solid #ccc; padding:10px; background:#fff; margin-bottom:10px;"></div>
+
+  <div style="display:flex;">
+    <input
+      id="userInput"
+      placeholder="Message Owen.Ai…"
+      style="flex:1; padding:10px; font-size:16px;"
+      onkeydown="if(event.key==='Enter') sendMessage();"
+    />
+    <button onclick="sendMessage()" style="padding:10px; margin-left:5px;">Send</button>
+  </div>
+</div>
+
+<script>
+const chatbox = document.getElementById("chatbox");
+
+function appendMessage(role, text) {
+  const div = document.createElement("div");
+  div.style.marginBottom = "10px";
+  div.innerHTML = `<strong style="color:${role==='You' ? '#007bff' : '#e91e63'}">${role}:</strong> ${text}`;
+  chatbox.appendChild(div);
+  chatbox.scrollTop = chatbox.scrollHeight;
+}
+
+function sendMessage() {
+  const input = document.getElementById("userInput");
+  const message = input.value.trim();
+  if (!message) return;
+
+  appendMessage("You", message);
+  input.value = "";
+
+  google.script.run.withSuccessHandler(reply => {
+    appendMessage("Owen.Ai", reply);
+  }).chatHandler(message);
+}
+</script>
