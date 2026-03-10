@@ -1,5 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const fetch = require("node-fetch"); // you need this dependency
 
 dotenv.config();
 
@@ -8,75 +9,72 @@ app.use(express.json());
 app.use(express.static("public"));
 
 const MODEL_URL =
-"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 let memory = [];
-
 const MAX_MEMORY_MESSAGES = 10;
 
 app.post("/chat", async (req, res) => {
+  try {
+    const userMessage = req.body.message;
 
-  const userMessage = req.body.message;
-
-  const contents = [
-    {
-      role: "system",
-      parts: [{ text: `
+    const contents = [
+      {
+        role: "system",
+        parts: [
+          {
+            text: `
 You are Owen.Ai.
 
 You live on a fun playful website called Owen.Fun.
 
 Your personality:
-Friendly
-Casual
-Playful
-Helpful
-Never robotic.
-`}]
-    }
-  ];
+Friendly, casual, playful, helpful, never robotic.
+`
+          }
+        ]
+      }
+    ];
 
-  memory.forEach(m => {
-    contents.push({
-      role: m.role,
-      parts: [{ text: m.text }]
+    memory.forEach((m) => {
+      contents.push({ role: m.role, parts: [{ text: m.text }] });
     });
-  });
 
-  contents.push({
-    role: "user",
-    parts: [{ text: userMessage }]
-  });
+    contents.push({ role: "user", parts: [{ text: userMessage }] });
 
-  const response = await fetch(MODEL_URL + "?key=" + process.env.GEMINI_API_KEY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    const payload = {
       contents: contents,
       generationConfig: {
         temperature: 0.8,
         maxOutputTokens: 250
       }
-    })
-  });
+    };
 
-  const json = await response.json();
+    const response = await fetch(MODEL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GEMINI_API_KEY}` // <--- correct header
+      },
+      body: JSON.stringify(payload)
+    });
 
-  const aiText =
-    json?.candidates?.[0]?.content?.parts?.[0]?.text ||
-    "Hmm… my brain glitched. Try again.";
+    const json = await response.json();
 
-  memory.push({ role: "user", text: userMessage });
-  memory.push({ role: "model", text: aiText });
+    const aiText =
+      json?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "Hmm… my brain glitched for a sec. Want to try again?";
 
-  memory = memory.slice(-MAX_MEMORY_MESSAGES);
+    memory.push({ role: "user", text: userMessage });
+    memory.push({ role: "model", text: aiText });
+    memory = memory.slice(-MAX_MEMORY_MESSAGES);
 
-  res.json({ reply: aiText });
-
+    res.json({ reply: aiText });
+  } catch (error) {
+    console.error(error);
+    res.json({ reply: "Hmm… my brain glitched for a sec. Want to try again?" });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
