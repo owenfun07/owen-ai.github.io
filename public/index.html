@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Owen.Ai</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fffff;
+      color: #000000;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      text-align: center;
+      width: 100%;
+      max-width: 600px;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 48px;
+      color: #00000;
+      margin-bottom: 10px;
+    }
+
+    p {
+      font-size: 18px;
+      margin-bottom: 30px;
+      opacity: 0.9;
+    }
+
+    input {
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: line;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Owen.AI</h1>
+    <p>Welcome to Owen.AI! Type anything to get started</p>
+    <input
+      id="startInput"
+      placeholder="What's on you mind…"
+      onkeydown="handleStart(event)"
+      autofocus
+    />
+  </div>
+
+  <script>
+    function handleStart(event) {
+      if (event.key === "Enter") {
+        const message = event.target.value.trim();
+        if (!message) return;
+
+        // Load chat UI, then inject first message
+        google.script.run.withSuccessHandler(html => {
+          document.body.innerHTML = html;
+
+          // Wait for chat UI to load, then send message
+          setTimeout(() => {
+            document.getElementById("userInput").value = message;
+            sendMessage(); // defined in chat.html
+          }, 100);
+        }).getChatInterface();
+      }
+    }
+  </script>
+</body>
+</html>
