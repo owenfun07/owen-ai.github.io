@@ -10,7 +10,7 @@ app.use(express.static("public"));
 
 const GEMINI_MODEL_URL_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const SYSTEM_INSTRUCTION = "You are Owen.Ai. Friendly, playful, and helpful.";
 
 let memory = [];
@@ -30,6 +30,9 @@ function extractModelText(json) {
 }
 
 function extractModelIssue(json) {
+  const apiErrorMessage = json?.error?.message;
+  if (apiErrorMessage) return apiErrorMessage;
+
   const blockReason = json?.promptFeedback?.blockReason;
   if (blockReason) return `Request blocked by Gemini safety filter (${blockReason}).`;
 
