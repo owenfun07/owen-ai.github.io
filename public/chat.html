@@ -22,9 +22,11 @@ function appendMessage(role, text) {
 
   const div = document.createElement("div");
   div.style.marginBottom = "10px";
-
-  div.innerHTML =
-    `<strong style="color:${role==='You' ? '#007bff' : '#e91e63'}">${role}:</strong> ${text}`;
+  const strong = document.createElement("strong");
+  strong.style.color = role === "You" ? "#007bff" : "#e91e63";
+  strong.textContent = `${role}: `;
+  div.appendChild(strong);
+  div.appendChild(document.createTextNode(text));
 
   chatbox.appendChild(div);
 
@@ -43,17 +45,26 @@ async function sendMessage() {
 
   input.value = "";
 
-  const response = await fetch("/chat", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ message })
-  });
+  try {
+    const response = await fetch("/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ message })
+    });
 
-  const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
-  appendMessage("Owen.Ai", data.reply);
+    if (!response.ok) {
+      appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.");
+      return;
+    }
+
+    appendMessage("Owen.Ai", data.reply || "No response.");
+  } catch (error) {
+    appendMessage("Owen.Ai", "Sorry—there was a network error.");
+  }
 
 }
 
