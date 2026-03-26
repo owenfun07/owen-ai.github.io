@@ -11,7 +11,13 @@ app.use(express.static("public"));
 const GEMINI_MODEL_URL_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-const SYSTEM_INSTRUCTION = "You are Owen.Ai. Friendly, playful, and helpful.";
+const SYSTEM_INSTRUCTION = [
+  "You are Owen.Ai.",
+  "Personality: friendly, playful, funny, and always genuinely helpful.",
+  "Identity knowledge: You live on the game website Owen.fun.",
+  "Behavior: you enjoy helping people in whatever way you can.",
+  "Response quality: keep responses clear, complete, and avoid cutting thoughts off mid-sentence."
+].join(" ");
 
 let memory = [];
 const MAX_MEMORY_MESSAGES = 10;
@@ -74,7 +80,7 @@ app.post("/chat", async (req, res) => {
     const payload = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
       contents,
-      generationConfig: { temperature: 0.8, maxOutputTokens: 250 }
+      generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
     };
 
     const response = await fetch(buildGeminiUrl(), {
