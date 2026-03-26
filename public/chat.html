@@ -55,6 +55,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 10px;
     }
 
     .brand {
@@ -79,6 +80,34 @@
 
     .subtitle {
       margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .auth {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .auth input {
+      width: 180px;
+      background: #111533;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .auth .tiny {
+      font-size: 12px;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .welcome {
       font-size: 12px;
       color: var(--muted);
     }
@@ -232,6 +261,12 @@
           <p class="subtitle">Friendly • Playful • Helpful</p>
         </div>
       </div>
+      <div class="auth">
+        <span id="welcomeUser" class="welcome"></span>
+        <input id="usernameInput" placeholder="Username" />
+        <button class="tiny" id="loginBtn" onclick="login()">Login</button>
+        <button class="tiny" id="logoutBtn" onclick="logout()" style="display:none;">Logout</button>
+      </div>
     </header>
 
     <section id="chatbox"></section>
@@ -258,15 +293,75 @@
     const typingIndicator = document.getElementById("typingIndicator");
     const input = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
+    const usernameInput = document.getElementById("usernameInput");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const welcomeUser = document.getElementById("welcomeUser");
     let isLoading = false;
+    let currentUser = localStorage.getItem("owen_user") || "";
 
-    function appendMessage(role, text, type = "") {
+    function historyKey() {
+      return currentUser ? `owen_chat_${currentUser}` : "owen_chat_guest";
+    }
+
+    function renderHistory() {
+      chatbox.innerHTML = "";
+      const raw = localStorage.getItem(historyKey());
+      if (!raw) return;
+      try {
+        const items = JSON.parse(raw);
+        if (!Array.isArray(items)) return;
+        items.forEach(item => appendMessage(item.role, item.text, item.type || "", false));
+      } catch (error) {
+        // Ignore invalid local history.
+      }
+    }
+
+    function saveMessage(role, text, type = "") {
+      const raw = localStorage.getItem(historyKey());
+      let items = [];
+      try {
+        items = raw ? JSON.parse(raw) : [];
+      } catch (error) {
+        items = [];
+      }
+      items.push({ role, text, type, ts: Date.now() });
+      items = items.slice(-100);
+      localStorage.setItem(historyKey(), JSON.stringify(items));
+    }
+
+    function refreshAuthUi() {
+      const loggedIn = Boolean(currentUser);
+      welcomeUser.textContent = loggedIn ? `Hi, ${currentUser}` : "Guest mode";
+      usernameInput.style.display = loggedIn ? "none" : "block";
+      loginBtn.style.display = loggedIn ? "none" : "inline-block";
+      logoutBtn.style.display = loggedIn ? "inline-block" : "none";
+    }
+
+    function login() {
+      const name = usernameInput.value.trim();
+      if (!name) return;
+      currentUser = name;
+      localStorage.setItem("owen_user", currentUser);
+      refreshAuthUi();
+      renderHistory();
+    }
+
+    function logout() {
+      currentUser = "";
+      localStorage.removeItem("owen_user");
+      refreshAuthUi();
+      renderHistory();
+    }
+
+    function appendMessage(role, text, type = "", save = true) {
       const div = document.createElement("div");
       const baseClass = role === "You" ? "msg user" : "msg bot";
       div.className = type === "error" ? "msg error" : baseClass;
       div.textContent = text;
       chatbox.appendChild(div);
       chatbox.scrollTop = chatbox.scrollHeight;
+      if (save) saveMessage(role, text, type);
     }
 
     function setLoading(loading) {
@@ -291,7 +386,7 @@
         const response = await fetch("/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({ message, user: currentUser || "guest" })
         });
 
         const data = await response.json().catch(() => ({}));
@@ -310,6 +405,9 @@
     }
 
     window.onload = () => {
+      refreshAuthUi();
+      renderHistory();
+
       const firstMessage = localStorage.getItem("firstMessage");
       if (firstMessage) {
         localStorage.removeItem("firstMessage");
@@ -317,6 +415,10 @@
         sendMessage();
       }
     };
+
+    usernameInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") login();
+    });
   </script>
 </body>
 </html>
