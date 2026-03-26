@@ -1,74 +1,167 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Owen.Ai</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #ffffff;
-      color: #000000;
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    :root {
+      --bg: #0f1226;
+      --panel: #171a35;
+      --text: #eef1ff;
+      --muted: #a9b2dd;
+      --accent: #7c5cff;
+      --accent-2: #24d2ff;
     }
 
-    .container {
-      text-align: center;
-      width: 100%;
-      max-width: 600px;
-      padding: 20px;
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 700px at 10% -10%, #2f2a7f 0%, transparent 60%),
+                  radial-gradient(1000px 700px at 100% 0%, #0d6e8f 0%, transparent 55%),
+                  var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(720px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 24px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+      padding: 30px 26px;
+      animation: fadeInUp 450ms ease;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: #d9e8ff;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.06);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #44ffb0;
+      box-shadow: 0 0 10px #44ffb0;
     }
 
     h1 {
-      font-size: 48px;
-      color: #000000;
-      margin-bottom: 10px;
+      margin: 16px 0 8px 0;
+      font-size: clamp(30px, 5vw, 50px);
+      letter-spacing: 0.2px;
     }
 
     p {
-      font-size: 18px;
-      margin-bottom: 30px;
-      opacity: 0.9;
+      margin: 0 0 22px 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
     }
 
     input {
       width: 100%;
-      padding: 15px;
-      font-size: 18px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
+      background: #111533;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 13px 14px;
+      font-size: 15px;
       outline: none;
+      transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.22);
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 0 16px;
+      color: white;
+      font-weight: 600;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #90a1dd;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Owen.AI</h1>
-    <p>Welcome to Owen.AI! Type anything to get started</p>
-    <input
-      id="startInput"
-      placeholder="What's on your mind…"
-      onkeydown="handleStart(event)"
-      autofocus
-    />
+  <div class="card">
+    <span class="pill"><span class="dot"></span>Online</span>
+    <h1>Welcome to Owen.Ai</h1>
+    <p>Ask anything and start chatting with a cleaner, faster, and more polished experience.</p>
+
+    <div class="row">
+      <input
+        id="startInput"
+        placeholder="What's on your mind?"
+        onkeydown="handleStart(event)"
+        autofocus
+      />
+      <button onclick="startChat()">Start</button>
+    </div>
+    <div class="hint">Press Enter to jump straight into chat.</div>
   </div>
 
-<script>
-function handleStart(event) {
+  <script>
+    function startChat() {
+      const input = document.getElementById("startInput");
+      const message = input.value.trim();
+      if (!message) return;
+      localStorage.setItem("firstMessage", message);
+      window.location.href = "/chat.html";
+    }
 
-  if (event.key === "Enter") {
-
-    const message = event.target.value.trim();
-    if (!message) return;
-
-    localStorage.setItem("firstMessage", message);
-
-    window.location.href = "/chat.html";
-
-  }
-}
-</script>
+    function handleStart(event) {
+      if (event.key === "Enter") {
+        startChat();
+      }
+    }
+  </script>
 </body>
 </html>
