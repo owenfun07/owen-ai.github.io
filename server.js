@@ -11,6 +11,7 @@ app.use(express.static("public"));
 const GEMINI_MODEL_URL_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "";
 const SYSTEM_INSTRUCTION = [
   "You are Owen.Ai.",
   "Personality: friendly, playful, funny, and always genuinely helpful.",
@@ -72,6 +73,76 @@ function summarizeGeminiResponse(json) {
     promptFeedback: json?.promptFeedback || {}
   };
 }
+
+async function callAuthService(action, username, password) {
+  if (!AUTH_SERVICE_URL) {
+    throw new Error("AUTH_SERVICE_URL is not configured.");
+  }
+
+  const response = await fetch(AUTH_SERVICE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, username, password })
+  });
+
+  const text = await response.text();
+  let json = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (error) {
+    json = { ok: false, message: "Auth service returned invalid JSON." };
+  }
+
+  if (!response.ok) {
+    return { ok: false, message: json?.message || `Auth service failed (${response.status}).` };
+  }
+
+  return { ok: Boolean(json?.ok), message: json?.message || "", user: json?.user || null };
+}
+
+app.post("/auth/login", async (req, res) => {
+  try {
+    const username = req.body?.username?.trim();
+    const password = req.body?.password;
+
+    if (!username || !password) {
+      return res.status(400).json({ ok: false, message: "Username and password are required." });
+    }
+
+    const result = await callAuthService("login", username, password);
+    if (!result.ok) {
+      return res.status(401).json({ ok: false, message: result.message || "Invalid credentials." });
+    }
+
+    return res.json({ ok: true, user: { username: result.user?.username || username } });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "Login failed." });
+  }
+});
+
+app.post("/auth/signup", async (req, res) => {
+  try {
+    const username = req.body?.username?.trim();
+    const password = req.body?.password;
+
+    if (!username || !password) {
+      return res.status(400).json({ ok: false, message: "Username and password are required." });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ ok: false, message: "Password must be at least 6 characters." });
+    }
+
+    const result = await callAuthService("signup", username, password);
+    if (!result.ok) {
+      return res.status(400).json({ ok: false, message: result.message || "Signup failed." });
+    }
+
+    return res.json({ ok: true, user: { username: result.user?.username || username } });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "Signup failed." });
+  }
+});
 
 app.post("/chat", async (req, res) => {
   try {
