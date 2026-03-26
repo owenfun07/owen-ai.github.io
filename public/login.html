@@ -83,7 +83,7 @@
     <div id="authStatus" class="status"></div>
     <div class="row">
       <a class="btn ghost" href="/">Back</a>
-      <button onclick="goToChat()">Go to Chat</button>
+      <div></div>
     </div>
   </div>
 
@@ -132,9 +132,6 @@
       try { await authRequest("/auth/signup"); } catch (error) { setStatus("Signup request failed.", true); }
     }
 
-    function goToChat() {
-      window.location.href = "/chat.html";
-    }
   </script>
 </body>
 </html>
