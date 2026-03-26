@@ -168,9 +168,17 @@
       border-top: 1px solid rgba(255,255,255,0.12);
       padding: 12px;
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: auto 1fr auto;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
+    }
+
+    .icon-btn {
+      padding: 0 12px;
+    }
+
+    .icon-btn[hidden] {
+      display: none;
     }
 
     #userInput {
@@ -260,6 +268,8 @@
     </div>
 
     <div class="composer">
+      <input id="imageInput" type="file" accept="image/*" hidden onchange="handleImageFile(event)" />
+      <button class="icon-btn" id="imageBtn" onclick="pickImage()" title="Upload image" hidden>📷</button>
       <input
         id="userInput"
         placeholder="Message Owen.Ai…"
@@ -275,15 +285,23 @@
     const input = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
+    const imageBtn = document.getElementById("imageBtn");
+    const imageInput = document.getElementById("imageInput");
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
+    let pendingImage = null;
+
+    function isLoggedIn() {
+      return Boolean(currentUser);
+    }
 
     function historyKey() {
-      return currentUser ? `owen_chat_${currentUser}` : "owen_chat_guest";
+      return `owen_chat_${currentUser}`;
     }
 
     function renderHistory() {
       chatbox.innerHTML = "";
+      if (!isLoggedIn()) return;
       const raw = localStorage.getItem(historyKey());
       if (!raw) return;
       try {
@@ -296,6 +314,7 @@
     }
 
     function saveMessage(role, text, type = "") {
+      if (!isLoggedIn()) return;
       const raw = localStorage.getItem(historyKey());
       let items = [];
       try {
@@ -309,7 +328,9 @@
     }
 
     function refreshAuthUi() {
-      welcomeUser.textContent = currentUser ? `Hi, ${currentUser}` : "Guest mode";
+      const loggedIn = isLoggedIn();
+      welcomeUser.textContent = loggedIn ? `Hi, ${currentUser}` : "Guest mode";
+      imageBtn.hidden = !loggedIn;
     }
 
     function goToLogin() {
@@ -326,6 +347,21 @@
       if (save) saveMessage(role, text, type);
     }
 
+    function appendImagePreview(dataUrl, save = true) {
+      const div = document.createElement("div");
+      div.className = "msg user";
+      const img = document.createElement("img");
+      img.src = dataUrl;
+      img.alt = "Uploaded image";
+      img.style.maxWidth = "240px";
+      img.style.borderRadius = "10px";
+      img.style.display = "block";
+      div.appendChild(img);
+      chatbox.appendChild(div);
+      chatbox.scrollTop = chatbox.scrollHeight;
+      if (save && isLoggedIn()) saveMessage("You", "[Image]", "image");
+    }
+
     function setLoading(loading) {
       isLoading = loading;
       sendBtn.disabled = loading;
@@ -334,13 +370,42 @@
       if (!loading) input.focus();
     }
 
+    function pickImage() {
+      if (!isLoggedIn()) return;
+      imageInput.click();
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleImageFile(event) {
+      if (!isLoggedIn()) return;
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const dataUrl = await readFileAsDataUrl(file);
+      const base64 = String(dataUrl).split(",")[1] || "";
+      pendingImage = {
+        mimeType: file.type || "image/png",
+        data: base64,
+        preview: dataUrl
+      };
+      appendMessage("You", "📎 Image attached");
+    }
+
     async function sendMessage() {
       if (isLoading) return;
 
       const message = input.value.trim();
-      if (!message) return;
+      if (!message && !pendingImage) return;
 
-      appendMessage("You", message);
+      if (message) appendMessage("You", message);
+      if (pendingImage?.preview) appendImagePreview(pendingImage.preview);
       input.value = "";
       setLoading(true);
 
@@ -348,7 +413,11 @@
         const response = await fetch("/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message, user: currentUser || "guest" })
+          body: JSON.stringify({
+            message,
+            user: currentUser || "guest",
+            image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null
+          })
         });
 
         const data = await response.json().catch(() => ({}));
@@ -362,6 +431,8 @@
       } catch (error) {
         appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
       } finally {
+        pendingImage = null;
+        imageInput.value = "";
         setLoading(false);
       }
     }
@@ -377,6 +448,28 @@
         sendMessage();
       }
     };
+
+    document.addEventListener("paste", async event => {
+      if (!isLoggedIn()) return;
+      const items = event.clipboardData?.items || [];
+      for (const item of items) {
+        if (item.type && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (!file) return;
+          const dataUrl = await readFileAsDataUrl(file);
+          const base64 = String(dataUrl).split(",")[1] || "";
+          pendingImage = {
+            mimeType: file.type || "image/png",
+            data: base64,
+            preview: dataUrl
+          };
+          appendMessage("You", "📎 Image pasted");
+          event.preventDefault();
+          return;
+        }
+      }
+    });
+
   </script>
 </body>
 </html>
