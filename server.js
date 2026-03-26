@@ -150,14 +150,35 @@ app.post("/chat", async (req, res) => {
       return res.status(500).json({ reply: "Server is missing GEMINI_API_KEY." });
     }
 
-    const userMessage = req.body?.message?.trim();
-    if (!userMessage) {
-      return res.status(400).json({ reply: "Please send a non-empty message." });
+    const userMessage = req.body?.message?.trim() || "";
+    const image = req.body?.image || null;
+    const hasImage = Boolean(image?.data && image?.mimeType);
+
+    if (!userMessage && !hasImage) {
+      return res.status(400).json({ reply: "Please send a message or an image." });
+    }
+
+    if (hasImage && !String(image.mimeType).startsWith("image/")) {
+      return res.status(400).json({ reply: "Only image uploads are supported." });
+    }
+
+    if (hasImage && String(image.data).length > 6_000_000) {
+      return res.status(400).json({ reply: "Image is too large. Please upload a smaller image." });
     }
 
     const contents = [];
     memory.forEach(m => contents.push({ role: m.role, parts: [{ text: m.text }] }));
-    contents.push({ role: "user", parts: [{ text: userMessage }] });
+    const userParts = [];
+    if (userMessage) userParts.push({ text: userMessage });
+    if (hasImage) {
+      userParts.push({
+        inlineData: {
+          mimeType: image.mimeType,
+          data: image.data
+        }
+      });
+    }
+    contents.push({ role: "user", parts: userParts });
 
     const payload = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
@@ -198,7 +219,7 @@ app.post("/chat", async (req, res) => {
       return res.status(502).json({ reply: `I couldn't generate text. ${issue}` });
     }
 
-    memory.push({ role: "user", text: userMessage });
+    memory.push({ role: "user", text: userMessage || "[User sent an image]" });
     memory.push({ role: "model", text: aiText });
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
 
