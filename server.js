@@ -50,6 +50,17 @@ function extractModelIssue(json) {
   return "Gemini returned no text content.";
 }
 
+function isQuotaExceeded(statusCode, rawText, json) {
+  if (statusCode === 429) return true;
+  const reason = json?.error?.status || "";
+  const message = json?.error?.message || rawText || "";
+  const combined = `${reason} ${message}`.toLowerCase();
+  return combined.includes("resource_exhausted")
+    || combined.includes("quota")
+    || combined.includes("daily limit")
+    || combined.includes("rate limit");
+}
+
 function summarizeGeminiResponse(json) {
   return {
     model: GEMINI_MODEL,
@@ -94,6 +105,17 @@ app.post("/chat", async (req, res) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Gemini API error:", response.status, errorText);
+      let errorJson = null;
+      try {
+        errorJson = JSON.parse(errorText);
+      } catch (error) {
+        // Non-JSON error; fall back to generic provider error.
+      }
+      if (isQuotaExceeded(response.status, errorText, errorJson)) {
+        return res.status(429).json({
+          reply: "I hit my free daily API limit. Please try again tomorrow (or later if the quota resets sooner)."
+        });
+      }
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
 
@@ -141,6 +163,17 @@ app.get("/test-gemini", async (req, res) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      let errorJson = null;
+      try {
+        errorJson = JSON.parse(errorText);
+      } catch (error) {
+        // Non-JSON error; fall back to generic provider error.
+      }
+      if (isQuotaExceeded(response.status, errorText, errorJson)) {
+        return res.status(429).send(
+          "Gemini test failed: free-tier quota exceeded. Please wait for quota reset or use a different key."
+        );
+      }
       return res
         .status(502)
         .send(`Gemini test failed with status ${response.status}: ${errorText}`);
