@@ -3,21 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Owen.Ai</title>
+  <title>Owen.Ai Login</title>
   <style>
     :root {
       --bg: #0f1226;
-      --panel: #171a35;
       --text: #eef1ff;
       --muted: #a9b2dd;
       --accent: #7c5cff;
       --accent-2: #24d2ff;
+      --error: #ff8c8c;
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -30,138 +26,162 @@
       place-items: center;
       padding: 24px;
     }
-
     .card {
-      width: min(720px, 100%);
+      width: min(740px, 100%);
       background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
-      border: 1px solid rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.16);
       border-radius: 24px;
       box-shadow: 0 25px 60px rgba(0,0,0,0.35);
       padding: 30px 26px;
-      animation: fadeInUp 450ms ease;
     }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      border-radius: 999px;
-      padding: 6px 12px;
-      font-size: 12px;
-      color: #d9e8ff;
-      border: 1px solid rgba(255,255,255,0.2);
-      background: rgba(255,255,255,0.06);
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #44ffb0;
-      box-shadow: 0 0 10px #44ffb0;
-    }
-
     h1 {
-      margin: 16px 0 8px 0;
+      margin: 0 0 8px 0;
       font-size: clamp(30px, 5vw, 50px);
-      letter-spacing: 0.2px;
     }
-
     p {
-      margin: 0 0 22px 0;
+      margin: 0 0 18px 0;
       color: var(--muted);
-      font-size: 16px;
     }
-
-    .row {
+    .grid {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
-
+    @media (max-width: 680px) {
+      .grid { grid-template-columns: 1fr; }
+    }
     input {
       width: 100%;
       background: #111533;
       color: var(--text);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
-      padding: 13px 14px;
+      padding: 12px 14px;
       font-size: 15px;
       outline: none;
-      transition: border-color 180ms ease, box-shadow 180ms ease;
     }
-
-    input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.22);
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
     }
-
     button {
       border: 0;
       border-radius: 12px;
-      padding: 0 16px;
+      padding: 12px 14px;
       color: white;
       font-weight: 600;
       background: linear-gradient(120deg, var(--accent), var(--accent-2));
       cursor: pointer;
-      transition: transform 120ms ease, filter 120ms ease;
     }
-
-    button:hover {
-      transform: translateY(-1px);
-      filter: brightness(1.06);
+    .ghost {
+      background: rgba(255,255,255,0.12);
     }
-
-    .hint {
-      margin-top: 12px;
-      font-size: 12px;
-      color: #90a1dd;
+    .status {
+      min-height: 20px;
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
     }
-
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(8px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .status.error {
+      color: var(--error);
+    }
+    .start {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <span class="pill"><span class="dot"></span>Online</span>
     <h1>Welcome to Owen.Ai</h1>
-    <p>Ask anything and start chatting with a cleaner, faster, and more polished experience.</p>
+    <p>Login or sign up to sync your account across devices.</p>
+
+    <div class="grid">
+      <input id="username" placeholder="Username" />
+      <input id="password" type="password" placeholder="Password" />
+    </div>
 
     <div class="row">
-      <input
-        id="startInput"
-        placeholder="What's on your mind?"
-        onkeydown="handleStart(event)"
-        autofocus
-      />
-      <button onclick="startChat()">Start</button>
+      <button onclick="login()">Login</button>
+      <button class="ghost" onclick="signup()">Sign Up</button>
     </div>
-    <div class="hint">Press Enter to jump straight into chat.</div>
+
+    <div id="authStatus" class="status"></div>
+
+    <div class="start">
+      <input id="startInput" placeholder="Optional first message..." onkeydown="if(event.key==='Enter') goToChat();" />
+      <button onclick="goToChat()">Go to Chat</button>
+    </div>
   </div>
 
   <script>
-    function startChat() {
-      const input = document.getElementById("startInput");
-      const message = input.value.trim();
-      if (!message) return;
-      localStorage.setItem("firstMessage", message);
+    const authStatus = document.getElementById("authStatus");
+
+    function setStatus(message, isError = false) {
+      authStatus.textContent = message;
+      authStatus.className = isError ? "status error" : "status";
+    }
+
+    function saveSession(username) {
+      localStorage.setItem("owen_user", username);
+      setStatus(`Logged in as ${username}`);
+    }
+
+    async function authRequest(path) {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!username || !password) {
+        setStatus("Enter username and password.", true);
+        return false;
+      }
+
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        setStatus(data.message || "Authentication failed.", true);
+        return false;
+      }
+
+      saveSession(data.user?.username || username);
+      return true;
+    }
+
+    async function login() {
+      try {
+        await authRequest("/auth/login");
+      } catch (error) {
+        setStatus("Login request failed.", true);
+      }
+    }
+
+    async function signup() {
+      try {
+        await authRequest("/auth/signup");
+      } catch (error) {
+        setStatus("Signup request failed.", true);
+      }
+    }
+
+    function goToChat() {
+      const firstMessage = document.getElementById("startInput").value.trim();
+      if (firstMessage) localStorage.setItem("firstMessage", firstMessage);
       window.location.href = "/chat.html";
     }
 
-    function handleStart(event) {
-      if (event.key === "Enter") {
-        startChat();
-      }
-    }
+    window.onload = () => {
+      const user = localStorage.getItem("owen_user");
+      if (user) setStatus(`Logged in as ${user}`);
+    };
   </script>
 </body>
 </html>
