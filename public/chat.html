@@ -17,11 +17,7 @@
       --bot: #c23cff;
       --danger: #ff6b6b;
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -34,7 +30,6 @@
       place-items: center;
       padding: 20px;
     }
-
     .app {
       width: min(920px, 100%);
       height: min(88vh, 760px);
@@ -48,7 +43,6 @@
       overflow: hidden;
       animation: fadeInUp 450ms ease;
     }
-
     .header {
       padding: 16px 18px;
       border-bottom: 1px solid rgba(255,255,255,0.12);
@@ -57,13 +51,11 @@
       justify-content: space-between;
       gap: 10px;
     }
-
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
     }
-
     .dot {
       width: 10px;
       height: 10px;
@@ -71,47 +63,25 @@
       background: #44ffb0;
       box-shadow: 0 0 12px #44ffb0;
     }
-
     .title {
       font-size: 20px;
       font-weight: 700;
       margin: 0;
     }
-
     .subtitle {
       margin: 0;
       font-size: 12px;
       color: var(--muted);
     }
-
     .auth {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-
-    .auth input {
-      width: 180px;
-      background: #111533;
-      color: var(--text);
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 10px;
-      padding: 8px 10px;
-      font-size: 13px;
-      outline: none;
-    }
-
-    .auth .tiny {
-      font-size: 12px;
-      border-radius: 10px;
-      padding: 8px 10px;
-    }
-
     .welcome {
       font-size: 12px;
       color: var(--muted);
     }
-
     #chatbox {
       overflow-y: auto;
       padding: 16px;
@@ -120,7 +90,6 @@
       gap: 10px;
       scroll-behavior: smooth;
     }
-
     .msg {
       max-width: 80%;
       padding: 10px 12px;
@@ -130,26 +99,22 @@
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-
     .msg.user {
       align-self: flex-end;
       background: linear-gradient(180deg, #3f77ff, #2d5bf0);
       border: 1px solid rgba(255,255,255,0.16);
     }
-
     .msg.bot {
       align-self: flex-start;
       background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.11);
     }
-
     .msg.error {
       align-self: flex-start;
       background: rgba(255, 107, 107, 0.18);
       border: 1px solid rgba(255, 107, 107, 0.45);
       color: #ffdcdc;
     }
-
     .typing {
       display: none;
       align-items: center;
@@ -158,12 +123,10 @@
       font-size: 13px;
       margin: 2px 0 0 4px;
     }
-
     .typing.show {
       display: flex;
       animation: fadeInUp 200ms ease;
     }
-
     .typing .bubble {
       width: 8px;
       height: 8px;
@@ -172,14 +135,8 @@
       opacity: 0.45;
       animation: bounce 900ms infinite ease-in-out;
     }
-
-    .typing .bubble:nth-child(2) {
-      animation-delay: 150ms;
-    }
-
-    .typing .bubble:nth-child(3) {
-      animation-delay: 300ms;
-    }
+    .typing .bubble:nth-child(2) { animation-delay: 150ms; }
+    .typing .bubble:nth-child(3) { animation-delay: 300ms; }
 
     .composer {
       border-top: 1px solid rgba(255,255,255,0.12);
@@ -189,7 +146,6 @@
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
     }
-
     #userInput {
       width: 100%;
       background: #111533;
@@ -201,12 +157,10 @@
       outline: none;
       transition: border-color 180ms ease, box-shadow 180ms ease;
     }
-
     #userInput:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.23);
     }
-
     button {
       border: 0;
       border-radius: 12px;
@@ -218,36 +172,22 @@
       cursor: pointer;
       transition: transform 120ms ease, filter 120ms ease;
     }
-
     button:hover {
       transform: translateY(-1px);
       filter: brightness(1.06);
     }
-
     button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
       transform: none;
     }
-
     @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(8px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-
     @keyframes bounce {
-      0%, 80%, 100% {
-        transform: translateY(0);
-      }
-      40% {
-        transform: translateY(-4px);
-      }
+      0%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-4px); }
     }
   </style>
 </head>
@@ -263,9 +203,7 @@
       </div>
       <div class="auth">
         <span id="welcomeUser" class="welcome"></span>
-        <input id="usernameInput" placeholder="Username" />
-        <button class="tiny" id="loginBtn" onclick="login()">Login</button>
-        <button class="tiny" id="logoutBtn" onclick="logout()" style="display:none;">Logout</button>
+        <button onclick="switchAccount()">Switch account</button>
       </div>
     </header>
 
@@ -293,9 +231,6 @@
     const typingIndicator = document.getElementById("typingIndicator");
     const input = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
-    const usernameInput = document.getElementById("usernameInput");
-    const loginBtn = document.getElementById("loginBtn");
-    const logoutBtn = document.getElementById("logoutBtn");
     const welcomeUser = document.getElementById("welcomeUser");
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
@@ -331,27 +266,11 @@
     }
 
     function refreshAuthUi() {
-      const loggedIn = Boolean(currentUser);
-      welcomeUser.textContent = loggedIn ? `Hi, ${currentUser}` : "Guest mode";
-      usernameInput.style.display = loggedIn ? "none" : "block";
-      loginBtn.style.display = loggedIn ? "none" : "inline-block";
-      logoutBtn.style.display = loggedIn ? "inline-block" : "none";
+      welcomeUser.textContent = currentUser ? `Hi, ${currentUser}` : "Guest mode";
     }
 
-    function login() {
-      const name = usernameInput.value.trim();
-      if (!name) return;
-      currentUser = name;
-      localStorage.setItem("owen_user", currentUser);
-      refreshAuthUi();
-      renderHistory();
-    }
-
-    function logout() {
-      currentUser = "";
-      localStorage.removeItem("owen_user");
-      refreshAuthUi();
-      renderHistory();
+    function switchAccount() {
+      window.location.href = "/";
     }
 
     function appendMessage(role, text, type = "", save = true) {
@@ -405,6 +324,10 @@
     }
 
     window.onload = () => {
+      if (!currentUser) {
+        window.location.href = "/";
+        return;
+      }
       refreshAuthUi();
       renderHistory();
 
@@ -415,10 +338,6 @@
         sendMessage();
       }
     };
-
-    usernameInput.addEventListener("keydown", event => {
-      if (event.key === "Enter") login();
-    });
   </script>
 </body>
 </html>
