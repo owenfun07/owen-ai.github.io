@@ -1,89 +1,322 @@
-<div style="padding:20px; font-family:Arial; background:#f4f4f9; height:100vh; display:flex; flex-direction:column;">
-  <h1 style="color:#ff4081;">Owen.Ai</h1>
-
-  <div id="chatbox" style="flex:1; overflow-y:auto; border:1px solid #ccc; padding:10px; background:#fff; margin-bottom:10px;"></div>
-
-  <div style="display:flex;">
-    <input
-      id="userInput"
-      placeholder="Message Owen.Ai…"
-      style="flex:1; padding:10px; font-size:16px;"
-      onkeydown="if(event.key==='Enter') sendMessage();"
-    />
-    <button onclick="sendMessage()" style="padding:10px; margin-left:5px;">Send</button>
-  </div>
-</div>
-
-<script>
-
-const chatbox = document.getElementById("chatbox");
-
-function appendMessage(role, text) {
-
-  const div = document.createElement("div");
-  div.style.marginBottom = "10px";
-  const strong = document.createElement("strong");
-  strong.style.color = role === "You" ? "#007bff" : "#e91e63";
-  strong.textContent = `${role}: `;
-  div.appendChild(strong);
-  div.appendChild(document.createTextNode(text));
-
-  chatbox.appendChild(div);
-
-  chatbox.scrollTop = chatbox.scrollHeight;
-
-}
-
-async function sendMessage() {
-
-  const input = document.getElementById("userInput");
-
-  const message = input.value.trim();
-  if (!message) return;
-
-  appendMessage("You", message);
-
-  input.value = "";
-
-  try {
-    const response = await fetch("/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ message })
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.");
-      return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Owen.Ai Chat</title>
+  <style>
+    :root {
+      --bg: #0f1226;
+      --panel: #171a35;
+      --panel-soft: #1f2447;
+      --accent: #7c5cff;
+      --accent-2: #24d2ff;
+      --text: #eef1ff;
+      --muted: #a9b2dd;
+      --user: #2b63ff;
+      --bot: #c23cff;
+      --danger: #ff6b6b;
     }
 
-    appendMessage("Owen.Ai", data.reply || "No response.");
-  } catch (error) {
-    appendMessage("Owen.Ai", "Sorry—there was a network error.");
-  }
+    * {
+      box-sizing: border-box;
+    }
 
-}
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 700px at 10% -10%, #2f2a7f 0%, transparent 60%),
+                  radial-gradient(1000px 700px at 100% 0%, #0d6e8f 0%, transparent 55%),
+                  var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
 
-// load first message from welcome page
+    .app {
+      width: min(920px, 100%);
+      height: min(88vh, 760px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 20px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+      animation: fadeInUp 450ms ease;
+    }
 
-window.onload = () => {
+    .header {
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
 
-  const firstMessage = localStorage.getItem("firstMessage");
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
 
-  if (firstMessage) {
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #44ffb0;
+      box-shadow: 0 0 12px #44ffb0;
+    }
 
-    localStorage.removeItem("firstMessage");
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+    }
 
-    document.getElementById("userInput").value = firstMessage;
+    .subtitle {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
 
-    sendMessage();
+    #chatbox {
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+    }
 
-  }
+    .msg {
+      max-width: 80%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      line-height: 1.45;
+      animation: fadeInUp 240ms ease;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
 
-};
+    .msg.user {
+      align-self: flex-end;
+      background: linear-gradient(180deg, #3f77ff, #2d5bf0);
+      border: 1px solid rgba(255,255,255,0.16);
+    }
 
-</script>
+    .msg.bot {
+      align-self: flex-start;
+      background: var(--panel-soft);
+      border: 1px solid rgba(255,255,255,0.11);
+    }
+
+    .msg.error {
+      align-self: flex-start;
+      background: rgba(255, 107, 107, 0.18);
+      border: 1px solid rgba(255, 107, 107, 0.45);
+      color: #ffdcdc;
+    }
+
+    .typing {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      margin: 2px 0 0 4px;
+    }
+
+    .typing.show {
+      display: flex;
+      animation: fadeInUp 200ms ease;
+    }
+
+    .typing .bubble {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      opacity: 0.45;
+      animation: bounce 900ms infinite ease-in-out;
+    }
+
+    .typing .bubble:nth-child(2) {
+      animation-delay: 150ms;
+    }
+
+    .typing .bubble:nth-child(3) {
+      animation-delay: 300ms;
+    }
+
+    .composer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      background: rgba(6, 8, 22, 0.45);
+    }
+
+    #userInput {
+      width: 100%;
+      background: #111533;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    #userInput:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.23);
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 0 16px;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(-4px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="brand">
+        <span class="dot"></span>
+        <div>
+          <h1 class="title">Owen.Ai</h1>
+          <p class="subtitle">Friendly • Playful • Helpful</p>
+        </div>
+      </div>
+    </header>
+
+    <section id="chatbox"></section>
+
+    <div id="typingIndicator" class="typing" aria-live="polite">
+      <span class="bubble"></span>
+      <span class="bubble"></span>
+      <span class="bubble"></span>
+      <span>Owen is thinking…</span>
+    </div>
+
+    <div class="composer">
+      <input
+        id="userInput"
+        placeholder="Message Owen.Ai…"
+        onkeydown="if(event.key==='Enter') sendMessage();"
+      />
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+  </main>
+
+  <script>
+    const chatbox = document.getElementById("chatbox");
+    const typingIndicator = document.getElementById("typingIndicator");
+    const input = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    let isLoading = false;
+
+    function appendMessage(role, text, type = "") {
+      const div = document.createElement("div");
+      const baseClass = role === "You" ? "msg user" : "msg bot";
+      div.className = type === "error" ? "msg error" : baseClass;
+      div.textContent = text;
+      chatbox.appendChild(div);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function setLoading(loading) {
+      isLoading = loading;
+      sendBtn.disabled = loading;
+      input.disabled = loading;
+      typingIndicator.classList.toggle("show", loading);
+      if (!loading) input.focus();
+    }
+
+    async function sendMessage() {
+      if (isLoading) return;
+
+      const message = input.value.trim();
+      if (!message) return;
+
+      appendMessage("You", message);
+      input.value = "";
+      setLoading(true);
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.", "error");
+          return;
+        }
+
+        appendMessage("Owen.Ai", data.reply || "No response.");
+      } catch (error) {
+        appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    window.onload = () => {
+      const firstMessage = localStorage.getItem("firstMessage");
+      if (firstMessage) {
+        localStorage.removeItem("firstMessage");
+        input.value = firstMessage;
+        sendMessage();
+      }
+    };
+  </script>
+</body>
+</html>
