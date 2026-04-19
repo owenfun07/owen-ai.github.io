@@ -184,12 +184,14 @@
 
     #userInput {
       width: 100%;
+      height: 44px;
       background: #111533;
       color: var(--text);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
-      padding: 12px 14px;
+      padding: 0 14px;
       font-size: 15px;
+      line-height: 44px;
       outline: none;
       transition: border-color 180ms ease, box-shadow 180ms ease;
     }
@@ -214,6 +216,13 @@
     #sendBtn,
     #imageBtn {
       height: 44px;
+      line-height: 44px;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    #sendBtn {
+      min-width: 88px;
     }
 
     button:hover {
