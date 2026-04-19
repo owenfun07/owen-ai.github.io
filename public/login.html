@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Owen.Ai Login</title>
+  <style>
+    :root {
+      --bg: #0f1226;
+      --text: #eef1ff;
+      --muted: #a9b2dd;
+      --accent: #7c5cff;
+      --accent-2: #24d2ff;
+      --error: #ff8c8c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 700px at 10% -10%, #2f2a7f 0%, transparent 60%),
+                  radial-gradient(1000px 700px at 100% 0%, #0d6e8f 0%, transparent 55%),
+                  var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(740px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 24px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+      padding: 30px 26px;
+    }
+    h1 { margin: 0 0 8px 0; font-size: clamp(30px, 5vw, 50px); }
+    p { margin: 0 0 18px 0; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+    input {
+      width: 100%;
+      background: #111533;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      outline: none;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    button, a.btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: white;
+      text-decoration: none;
+      text-align: center;
+      font-weight: 600;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      cursor: pointer;
+    }
+    .ghost { background: rgba(255,255,255,0.12); }
+    .status { min-height: 20px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+    .status.error { color: var(--error); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Login / Sign up</h1>
+    <p>Create an account (Google Sheets-backed) or login to use the same username across devices.</p>
+
+    <div class="grid">
+      <input id="username" placeholder="Username" />
+      <input id="password" type="password" placeholder="Password" />
+    </div>
+
+    <div class="row">
+      <button onclick="login()">Login</button>
+      <button class="ghost" onclick="signup()">Sign Up</button>
+    </div>
+
+    <div id="authStatus" class="status"></div>
+    <div class="row">
+      <a class="btn ghost" href="/">Back</a>
+      <div></div>
+    </div>
+  </div>
+
+  <script>
+    const authStatus = document.getElementById("authStatus");
+
+    function setStatus(message, isError = false) {
+      authStatus.textContent = message;
+      authStatus.className = isError ? "status error" : "status";
+    }
+
+    function saveSession(username) {
+      localStorage.setItem("owen_user", username);
+      setStatus(`Logged in as ${username}`);
+    }
+
+    async function authRequest(path) {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      if (!username || !password) {
+        setStatus("Enter username and password.", true);
+        return false;
+      }
+
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        setStatus(data.message || "Authentication failed.", true);
+        return false;
+      }
+
+      saveSession(data.user?.username || username);
+      return true;
+    }
+
+    async function login() {
+      try { await authRequest("/auth/login"); } catch (error) { setStatus("Login request failed.", true); }
+    }
+
+    async function signup() {
+      try { await authRequest("/auth/signup"); } catch (error) { setStatus("Signup request failed.", true); }
+    }
+
+  </script>
+</body>
+</html>

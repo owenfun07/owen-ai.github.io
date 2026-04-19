@@ -1,78 +1,481 @@
-<div style="padding:20px; font-family:Arial; background:#f4f4f9; height:100vh; display:flex; flex-direction:column;">
-  <h1 style="color:#ff4081;">Owen.Ai</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Owen.Ai Chat</title>
+  <style>
+    :root {
+      --bg: #0f1226;
+      --panel: #171a35;
+      --panel-soft: #1f2447;
+      --accent: #7c5cff;
+      --accent-2: #24d2ff;
+      --text: #eef1ff;
+      --muted: #a9b2dd;
+      --user: #2b63ff;
+      --bot: #c23cff;
+      --danger: #ff6b6b;
+    }
 
-  <div id="chatbox" style="flex:1; overflow-y:auto; border:1px solid #ccc; padding:10px; background:#fff; margin-bottom:10px;"></div>
+    * {
+      box-sizing: border-box;
+    }
 
-  <div style="display:flex;">
-    <input
-      id="userInput"
-      placeholder="Message Owen.Ai…"
-      style="flex:1; padding:10px; font-size:16px;"
-      onkeydown="if(event.key==='Enter') sendMessage();"
-    />
-    <button onclick="sendMessage()" style="padding:10px; margin-left:5px;">Send</button>
-  </div>
-</div>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 700px at 10% -10%, #2f2a7f 0%, transparent 60%),
+                  radial-gradient(1000px 700px at 100% 0%, #0d6e8f 0%, transparent 55%),
+                  var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
 
-<script>
+    .app {
+      width: min(920px, 100%);
+      height: min(88vh, 760px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 20px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+      animation: fadeInUp 450ms ease;
+    }
 
-const chatbox = document.getElementById("chatbox");
+    .header {
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
 
-function appendMessage(role, text) {
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
 
-  const div = document.createElement("div");
-  div.style.marginBottom = "10px";
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #44ffb0;
+      box-shadow: 0 0 12px #44ffb0;
+    }
 
-  div.innerHTML =
-    `<strong style="color:${role==='You' ? '#007bff' : '#e91e63'}">${role}:</strong> ${text}`;
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+    }
 
-  chatbox.appendChild(div);
+    .subtitle {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
 
-  chatbox.scrollTop = chatbox.scrollHeight;
+    .auth {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-}
+    .welcome {
+      font-size: 12px;
+      color: var(--muted);
+    }
 
-async function sendMessage() {
+    #chatbox {
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+    }
 
-  const input = document.getElementById("userInput");
+    .msg {
+      max-width: 80%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      line-height: 1.45;
+      animation: fadeInUp 240ms ease;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
 
-  const message = input.value.trim();
-  if (!message) return;
+    .msg.user {
+      align-self: flex-end;
+      background: linear-gradient(180deg, #3f77ff, #2d5bf0);
+      border: 1px solid rgba(255,255,255,0.16);
+    }
 
-  appendMessage("You", message);
+    .msg.bot {
+      align-self: flex-start;
+      background: var(--panel-soft);
+      border: 1px solid rgba(255,255,255,0.11);
+    }
 
-  input.value = "";
+    .msg.error {
+      align-self: flex-start;
+      background: rgba(255, 107, 107, 0.18);
+      border: 1px solid rgba(255, 107, 107, 0.45);
+      color: #ffdcdc;
+    }
 
-  const response = await fetch("/chat", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ message })
-  });
+    .typing {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      margin: 2px 0 0 4px;
+    }
 
-  const data = await response.json();
+    .typing.show {
+      display: flex;
+      animation: fadeInUp 200ms ease;
+    }
 
-  appendMessage("Owen.Ai", data.reply);
+    .typing .bubble {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      opacity: 0.45;
+      animation: bounce 900ms infinite ease-in-out;
+    }
 
-}
+    .typing .bubble:nth-child(2) {
+      animation-delay: 150ms;
+    }
 
-// load first message from welcome page
+    .typing .bubble:nth-child(3) {
+      animation-delay: 300ms;
+    }
 
-window.onload = () => {
+    .composer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 12px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      background: rgba(6, 8, 22, 0.45);
+    }
 
-  const firstMessage = localStorage.getItem("firstMessage");
+    .icon-btn {
+      padding: 0 12px;
+    }
 
-  if (firstMessage) {
+    .icon-btn[hidden] {
+      display: none;
+    }
 
-    localStorage.removeItem("firstMessage");
+    #userInput {
+      width: 100%;
+      background: #111533;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
 
-    document.getElementById("userInput").value = firstMessage;
+    #userInput:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.23);
+    }
 
-    sendMessage();
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 0 16px;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease;
+    }
 
-  }
+    #sendBtn,
+    #imageBtn {
+      height: 44px;
+    }
 
-};
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
 
-</script>
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(-4px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="brand">
+        <span class="dot"></span>
+        <div>
+          <h1 class="title">Owen.Ai</h1>
+          <p class="subtitle">Friendly • Playful • Helpful</p>
+        </div>
+      </div>
+      <div class="auth">
+        <span id="welcomeUser" class="welcome"></span>
+        <button onclick="goToLogin()">Login / Sign up</button>
+      </div>
+    </header>
+
+    <section id="chatbox"></section>
+
+    <div id="typingIndicator" class="typing" aria-live="polite">
+      <span class="bubble"></span>
+      <span class="bubble"></span>
+      <span class="bubble"></span>
+      <span>Owen is thinking…</span>
+    </div>
+
+    <div class="composer">
+      <input id="imageInput" type="file" accept="image/*" hidden onchange="handleImageFile(event)" />
+      <button class="icon-btn" id="imageBtn" onclick="pickImage()" title="Upload image" hidden>📷</button>
+      <input
+        id="userInput"
+        placeholder="Message Owen.Ai…"
+        onkeydown="if(event.key==='Enter') sendMessage();"
+      />
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+  </main>
+
+  <script>
+    const chatbox = document.getElementById("chatbox");
+    const typingIndicator = document.getElementById("typingIndicator");
+    const input = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const welcomeUser = document.getElementById("welcomeUser");
+    const imageBtn = document.getElementById("imageBtn");
+    const imageInput = document.getElementById("imageInput");
+    let isLoading = false;
+    let currentUser = localStorage.getItem("owen_user") || "";
+    let pendingImage = null;
+
+    function isLoggedIn() {
+      return Boolean(currentUser);
+    }
+
+    function historyKey() {
+      return `owen_chat_${currentUser}`;
+    }
+
+    function renderHistory() {
+      chatbox.innerHTML = "";
+      if (!isLoggedIn()) return;
+      const raw = localStorage.getItem(historyKey());
+      if (!raw) return;
+      try {
+        const items = JSON.parse(raw);
+        if (!Array.isArray(items)) return;
+        items.forEach(item => appendMessage(item.role, item.text, item.type || "", false));
+      } catch (error) {
+        // Ignore invalid local history.
+      }
+    }
+
+    function saveMessage(role, text, type = "") {
+      if (!isLoggedIn()) return;
+      const raw = localStorage.getItem(historyKey());
+      let items = [];
+      try {
+        items = raw ? JSON.parse(raw) : [];
+      } catch (error) {
+        items = [];
+      }
+      items.push({ role, text, type, ts: Date.now() });
+      items = items.slice(-100);
+      localStorage.setItem(historyKey(), JSON.stringify(items));
+    }
+
+    function refreshAuthUi() {
+      const loggedIn = isLoggedIn();
+      welcomeUser.textContent = loggedIn ? `Hi, ${currentUser}` : "Guest mode";
+      imageBtn.hidden = !loggedIn;
+    }
+
+    function goToLogin() {
+      window.location.href = "/login.html";
+    }
+
+    function appendMessage(role, text, type = "", save = true) {
+      const div = document.createElement("div");
+      const baseClass = role === "You" ? "msg user" : "msg bot";
+      div.className = type === "error" ? "msg error" : baseClass;
+      div.textContent = text;
+      chatbox.appendChild(div);
+      chatbox.scrollTop = chatbox.scrollHeight;
+      if (save) saveMessage(role, text, type);
+    }
+
+    function appendImagePreview(dataUrl, save = true) {
+      const div = document.createElement("div");
+      div.className = "msg user";
+      const img = document.createElement("img");
+      img.src = dataUrl;
+      img.alt = "Uploaded image";
+      img.style.maxWidth = "240px";
+      img.style.borderRadius = "10px";
+      img.style.display = "block";
+      div.appendChild(img);
+      chatbox.appendChild(div);
+      chatbox.scrollTop = chatbox.scrollHeight;
+      if (save && isLoggedIn()) saveMessage("You", "[Image]", "image");
+    }
+
+    function setLoading(loading) {
+      isLoading = loading;
+      sendBtn.disabled = loading;
+      input.disabled = loading;
+      typingIndicator.classList.toggle("show", loading);
+      if (!loading) input.focus();
+    }
+
+    function pickImage() {
+      if (!isLoggedIn()) return;
+      imageInput.click();
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleImageFile(event) {
+      if (!isLoggedIn()) return;
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const dataUrl = await readFileAsDataUrl(file);
+      const base64 = String(dataUrl).split(",")[1] || "";
+      pendingImage = {
+        mimeType: file.type || "image/png",
+        data: base64,
+        preview: dataUrl
+      };
+      appendMessage("You", "📎 Image attached");
+    }
+
+    async function sendMessage() {
+      if (isLoading) return;
+
+      const message = input.value.trim();
+      if (!message && !pendingImage) return;
+
+      if (message) appendMessage("You", message);
+      if (pendingImage?.preview) appendImagePreview(pendingImage.preview);
+      input.value = "";
+      setLoading(true);
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            user: currentUser || "guest",
+            image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.", "error");
+          return;
+        }
+
+        appendMessage("Owen.Ai", data.reply || "No response.");
+      } catch (error) {
+        appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
+      } finally {
+        pendingImage = null;
+        imageInput.value = "";
+        setLoading(false);
+      }
+    }
+
+    window.onload = () => {
+      refreshAuthUi();
+      renderHistory();
+
+      const firstMessage = localStorage.getItem("firstMessage");
+      if (firstMessage) {
+        localStorage.removeItem("firstMessage");
+        input.value = firstMessage;
+        sendMessage();
+      }
+    };
+
+    document.addEventListener("paste", async event => {
+      if (!isLoggedIn()) return;
+      const items = event.clipboardData?.items || [];
+      for (const item of items) {
+        if (item.type && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (!file) return;
+          const dataUrl = await readFileAsDataUrl(file);
+          const base64 = String(dataUrl).split(",")[1] || "";
+          pendingImage = {
+            mimeType: file.type || "image/png",
+            data: base64,
+            preview: dataUrl
+          };
+          appendMessage("You", "📎 Image pasted");
+          event.preventDefault();
+          return;
+        }
+      }
+    });
+
+  </script>
+</body>
+</html>
