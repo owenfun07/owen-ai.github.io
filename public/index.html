@@ -1,74 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Owen.Ai</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #fffff;
-      color: #000000;
       margin: 0;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      min-height: 100vh;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      color: #eef1ff;
+      background: radial-gradient(1200px 700px at 10% -10%, #2f2a7f 0%, transparent 60%),
+                  radial-gradient(1000px 700px at 100% 0%, #0d6e8f 0%, transparent 55%),
+                  #0f1226;
+      display: grid;
+      place-items: center;
+      padding: 24px;
     }
-
-    .container {
-      text-align: center;
-      width: 100%;
-      max-width: 600px;
-      padding: 20px;
+    .card {
+      width: min(740px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 24px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+      padding: 30px 26px;
     }
-
-    h1 {
-      font-size: 48px;
-      color: #00000;
-      margin-bottom: 10px;
+    h1 { margin: 0 0 8px; font-size: clamp(30px, 5vw, 50px); }
+    p { margin: 0 0 18px; color: #a9b2dd; }
+    .start {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
     }
-
-    p {
-      font-size: 18px;
-      margin-bottom: 30px;
-      opacity: 0.9;
+    @media (max-width: 740px) {
+      .start { grid-template-columns: 1fr; }
     }
-
     input {
-      width: 100%;
-      padding: 15px;
-      font-size: 18px;
-      border-radius: 10px;
-      border: line;
+      background: #111533;
+      color: #eef1ff;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
       outline: none;
+    }
+    button, a.btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: white;
+      text-decoration: none;
+      text-align: center;
+      font-weight: 600;
+      background: linear-gradient(120deg, #7c5cff, #24d2ff);
+      cursor: pointer;
+    }
+    a.btn.secondary {
+      background: rgba(255,255,255,0.15);
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Owen.AI</h1>
-    <p>Welcome to Owen.AI! Type anything to get started</p>
-    <input
-      id="startInput"
-      placeholder="What's on you mind…"
-      onkeydown="handleStart(event)"
-      autofocus
-    />
+  <div class="card">
+    <h1>Welcome to Owen.Ai</h1>
+    <p>Chat as a guest instantly, or login/signup from the separate account page.</p>
+    <div class="start">
+      <input id="startInput" placeholder="Optional first message..." onkeydown="if(event.key==='Enter') goChat();" />
+      <button onclick="goChat()">Chat now</button>
+      <a class="btn secondary" href="/login.html">Login / Sign up</a>
+    </div>
   </div>
-
-<script>
-function handleStart(event) {
-
-  if (event.key === "Enter") {
-
-    const message = event.target.value.trim();
-    if (!message) return;
-
-    localStorage.setItem("firstMessage", message);
-
-    window.location.href = "/chat.html";
-
-  }
-}
-</script>
+  <script>
+    function goChat() {
+      const firstMessage = document.getElementById("startInput").value.trim();
+      if (firstMessage) localStorage.setItem("firstMessage", firstMessage);
+      window.location.href = "/chat.html";
+    }
+  </script>
 </body>
 </html>
