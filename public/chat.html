@@ -169,6 +169,7 @@
       padding: 12px;
       display: grid;
       grid-template-columns: auto 1fr auto;
+      align-items: center;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
     }
@@ -208,6 +209,11 @@
       background: linear-gradient(120deg, var(--accent), var(--accent-2));
       cursor: pointer;
       transition: transform 120ms ease, filter 120ms ease;
+    }
+
+    #sendBtn,
+    #imageBtn {
+      height: 44px;
     }
 
     button:hover {
