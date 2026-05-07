@@ -173,7 +173,7 @@
       border-top: 1px solid rgba(255,255,255,0.12);
       padding: 12px;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr auto;
       align-items: center;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
@@ -557,6 +557,25 @@
       if (!loading) input.focus();
     }
 
+    function pickFile() {
+      if (!isLoggedIn()) return;
+      fileInput.click();
+    }
+    function renderAttachmentChips() {
+      attachmentsPreview.innerHTML = "";
+      if (pendingImage?.fileName) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `🖼 ${pendingImage.fileName}`;
+        attachmentsPreview.appendChild(chip);
+      }
+      if (pendingFile?.name) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `📄 ${pendingFile.name}`;
+        attachmentsPreview.appendChild(chip);
+      }
+    }
     function pickFile() {
       if (!isLoggedIn()) return;
       fileInput.click();
