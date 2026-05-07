@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/logo.png" />
   <title>Owen.Ai</title>
   <style>
     body {
@@ -58,24 +59,34 @@
     a.btn.secondary {
       background: rgba(255,255,255,0.15);
     }
+    .welcome { color: #a9b2dd; font-size: 14px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Welcome to Owen.Ai</h1>
-    <p>Chat as a guest instantly, or login/signup from the separate account page.</p>
+    <p id="homeSubtext">Chat as a guest instantly, or login/signup from the separate account page.</p>
+    <div class="welcome" id="welcomeHome"></div>
     <div class="start">
       <input id="startInput" placeholder="Optional first message..." onkeydown="if(event.key==='Enter') goChat();" />
       <button onclick="goChat()">Chat now</button>
-      <a class="btn secondary" href="/login.html">Login / Sign up</a>
+      <a class="btn secondary" id="loginLink" href="/login">Login / Sign up</a>
     </div>
   </div>
   <script>
     function goChat() {
       const firstMessage = document.getElementById("startInput").value.trim();
       if (firstMessage) localStorage.setItem("firstMessage", firstMessage);
-      window.location.href = "/chat.html";
+      window.location.href = "/chat";
     }
+    (function initHomeAuth() {
+      const username = localStorage.getItem("owen_user");
+      const name = localStorage.getItem("owen_user_name") || username;
+      if (!username) return;
+      document.getElementById("welcomeHome").textContent = `Hi, ${name}`;
+      document.getElementById("homeSubtext").textContent = "You are logged in. Start chatting.";
+      document.getElementById("loginLink").style.display = "none";
+    })();
   </script>
 </body>
 </html>
