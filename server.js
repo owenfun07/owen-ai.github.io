@@ -23,8 +23,12 @@ const SYSTEM_INSTRUCTION = [
 let memory = [];
 const MAX_MEMORY_MESSAGES = 10;
 
-function buildGeminiUrl() {
-  return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY || "")}`;
+function buildGeminiUrl(stream = false) {
+  const key = encodeURIComponent(process.env.GEMINI_API_KEY || "");
+  if (stream) {
+    return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:streamGenerateContent?alt=sse&key=${key}`;
+  }
+  return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${key}`;
 }
 
 function extractModelText(json) {
@@ -32,8 +36,7 @@ function extractModelText(json) {
   if (!Array.isArray(parts)) return "";
   return parts
     .map(part => (typeof part?.text === "string" ? part.text : ""))
-    .join("")
-    .trim();
+    .join("");
 }
 
 function extractModelIssue(json) {
@@ -186,7 +189,7 @@ app.post("/chat", async (req, res) => {
       generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
     };
 
-    const response = await fetch(buildGeminiUrl(), {
+    const response = await fetch(buildGeminiUrl(true), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -210,20 +213,49 @@ app.post("/chat", async (req, res) => {
       }
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
 
-    const json = await response.json();
-    const aiText = extractModelText(json);
-    if (!aiText) {
-      const issue = extractModelIssue(json);
-      console.error("Gemini empty response:", issue, JSON.stringify(json).slice(0, 800));
-      return res.status(502).json({ reply: `I couldn't generate text. ${issue}` });
+    const reader = response.body;
+    let raw = "";
+    let finalText = "";
+    let usedOutputTokens = 0;
+
+    for await (const chunk of reader) {
+      raw += chunk.toString("utf8");
+      const events = raw.split("\n\n");
+      raw = events.pop() || "";
+      for (const event of events) {
+        const line = event.split("\n").find(l => l.startsWith("data: "));
+        if (!line) continue;
+        const payload = line.slice(6).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let parsed;
+        try {
+          parsed = JSON.parse(payload);
+        } catch (error) {
+          continue;
+        }
+        const delta = extractModelText(parsed);
+        if (delta) {
+          finalText += delta;
+          res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
+        }
+        usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+      }
+    }
+
+    if (!finalText.trim()) {
+      return res.end(`data: ${JSON.stringify({ delta: "I couldn't generate a response.", usedOutputTokens })}\n\ndata: [DONE]\n\n`);
     }
 
     memory.push({ role: "user", text: userMessage || "[User sent an image]" });
-    memory.push({ role: "model", text: aiText });
+    memory.push({ role: "model", text: finalText.trim() });
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
 
-    res.json({ reply: aiText });
+    res.write(`data: ${JSON.stringify({ usedOutputTokens })}\n\n`);
+    res.end("data: [DONE]\n\n");
   } catch (err) {
     console.error(err);
     res.status(500).json({ reply: "Hmm… network or API error. Try again?" });
