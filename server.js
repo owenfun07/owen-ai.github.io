@@ -12,6 +12,9 @@ const GEMINI_MODEL_URL_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "";
 const SYSTEM_INSTRUCTION = [
   "You are Owen.Ai.",
   "Personality: friendly, playful, funny, and always genuinely helpful.",
@@ -102,6 +105,73 @@ async function callAuthService(action, username, password) {
 
   return { ok: Boolean(json?.ok), message: json?.message || "", user: json?.user || null };
 }
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+app.get("/auth/google", (req, res) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_REDIRECT_URI) {
+    return res.status(500).send("Google OAuth is not configured.");
+  }
+
+  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
+  authUrl.searchParams.set("redirect_uri", GOOGLE_REDIRECT_URI);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", "openid email profile");
+  authUrl.searchParams.set("access_type", "online");
+  authUrl.searchParams.set("prompt", "select_account");
+  return res.redirect(authUrl.toString());
+});
+
+app.get("/auth/google/callback", async (req, res) => {
+  try {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
+      return res.status(500).send("Google OAuth is not configured.");
+    }
+    const code = req.query?.code;
+    if (!code) return res.status(400).send("Missing Google authorization code.");
+
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: GOOGLE_REDIRECT_URI,
+        grant_type: "authorization_code"
+      }).toString()
+    });
+    const tokenJson = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok || !tokenJson.access_token) {
+      return res.status(502).send("Google token exchange failed.");
+    }
+
+    const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: { Authorization: `Bearer ${tokenJson.access_token}` }
+    });
+    const profile = await profileResponse.json().catch(() => ({}));
+    if (!profileResponse.ok || !profile.sub) {
+      return res.status(502).send("Failed to read Google profile.");
+    }
+
+    const googleUsername = `google_${profile.sub}`;
+    const safeUsername = escapeHtml(googleUsername);
+    return res.send(`<!doctype html><html><body><script>
+      localStorage.setItem("owen_user", "${safeUsername}");
+      window.location.href = "/chat.html";
+    </script></body></html>`);
+  } catch (error) {
+    return res.status(500).send("Google login failed.");
+  }
+});
 
 app.post("/auth/login", async (req, res) => {
   try {
