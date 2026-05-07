@@ -61,6 +61,29 @@
       cursor: pointer;
     }
     .ghost { background: rgba(255,255,255,0.12); }
+    .google {
+      background: #fff;
+      color: #222;
+      border: 1px solid #d9d9d9;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .google-logo { font-weight: 800; color: #4285f4; }
+    .google.loading { position: relative; pointer-events: none; opacity: 0.75; }
+    .google.loading::after {
+      content: "Waiting for Google sign-in…";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,0.92);
+      border-radius: 12px;
+      color: #333;
+      font-size: 13px;
+      font-weight: 600;
+    }
     .status { min-height: 20px; margin-top: 10px; font-size: 13px; color: var(--muted); }
     .status.error { color: var(--error); }
   </style>
@@ -78,6 +101,12 @@
     <div class="row">
       <button onclick="login()">Login</button>
       <button class="ghost" onclick="signup()">Sign Up</button>
+    </div>
+    <div class="row">
+      <a class="btn google" id="googleBtn" href="#" onclick="startGoogleLogin(event)">
+        <span class="google-logo">G</span><span>Sign in with Google</span>
+      </a>
+      <div></div>
     </div>
 
     <div id="authStatus" class="status"></div>
@@ -130,6 +159,36 @@
 
     async function signup() {
       try { await authRequest("/auth/signup"); } catch (error) { setStatus("Signup request failed.", true); }
+    }
+
+    let googlePopup = null;
+    function startGoogleLogin(event) {
+      event.preventDefault();
+      const btn = document.getElementById("googleBtn");
+      btn.classList.add("loading");
+      const w = 520;
+      const h = 680;
+      const left = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
+      const top = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
+      googlePopup = window.open("/auth/google", "googleLogin", `popup=yes,width=${w},height=${h},left=${left},top=${top}`);
+
+      const stopLoading = () => btn.classList.remove("loading");
+      const poll = setInterval(() => {
+        if (!googlePopup || googlePopup.closed) {
+          clearInterval(poll);
+          stopLoading();
+        }
+      }, 400);
+
+      window.addEventListener("message", eventMsg => {
+        if (eventMsg.origin !== window.location.origin) return;
+        if (eventMsg.data?.type !== "google-auth-success") return;
+        localStorage.setItem("owen_user", eventMsg.data.username);
+        localStorage.setItem("owen_user_name", eventMsg.data.name || eventMsg.data.username);
+        setStatus(`Logged in as ${eventMsg.data.name || eventMsg.data.username}`);
+        stopLoading();
+        window.location.href = "/chat.html";
+      }, { once: true });
     }
 
   </script>
