@@ -121,9 +121,12 @@
     }
 
     .msg.bot {
-      align-self: flex-start;
-      background: var(--panel-soft);
-      border: 1px solid rgba(255,255,255,0.11);
+      align-self: stretch;
+      max-width: 100%;
+      padding: 2px 4px;
+      background: transparent;
+      border: none;
+      color: #d9e0ff;
     }
 
     .msg.error {
@@ -168,7 +171,7 @@
       border-top: 1px solid rgba(255,255,255,0.12);
       padding: 12px;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr auto;
       align-items: center;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
@@ -184,14 +187,14 @@
 
     #userInput {
       width: 100%;
-      height: 44px;
+      height: 50px;
       background: #111533;
       color: var(--text);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
       padding: 0 14px;
       font-size: 15px;
-      line-height: 44px;
+      line-height: 50px;
       outline: none;
       transition: border-color 180ms ease, box-shadow 180ms ease;
     }
@@ -222,7 +225,50 @@
     }
 
     #sendBtn {
-      min-width: 88px;
+      min-width: 56px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .tokens {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 0 14px 10px;
+      text-align: right;
+    }
+
+    .code-block {
+      margin: 10px 0;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0f132f;
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 10px;
+      background: #1a214d;
+      font-size: 12px;
+    }
+
+    .copy-code {
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      min-width: 74px;
+    }
+
+    .code-block pre {
+      margin: 0;
+      padding: 10px 12px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #e9eeff;
     }
 
     button:hover {
@@ -284,7 +330,6 @@
 
     <div class="composer">
       <input id="imageInput" type="file" accept="image/*" hidden onchange="handleImageFile(event)" />
-      <button class="icon-btn" id="imageBtn" onclick="pickImage()" title="Upload image" hidden>📷</button>
       <input
         id="userInput"
         placeholder="Message Owen.Ai…"
@@ -292,6 +337,7 @@
       />
       <button id="sendBtn" onclick="sendMessage()">Send</button>
     </div>
+    <div class="tokens" id="tokensLeft">Tokens left: 700</div>
   </main>
 
   <script>
@@ -300,8 +346,9 @@
     const input = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
-    const imageBtn = document.getElementById("imageBtn");
     const imageInput = document.getElementById("imageInput");
+    const tokensLeft = document.getElementById("tokensLeft");
+    const MAX_OUTPUT_TOKENS = 700;
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
     let pendingImage = null;
@@ -345,21 +392,66 @@
     function refreshAuthUi() {
       const loggedIn = isLoggedIn();
       welcomeUser.textContent = loggedIn ? `Hi, ${currentUser}` : "Guest mode";
-      imageBtn.hidden = !loggedIn;
     }
 
     function goToLogin() {
       window.location.href = "/login.html";
     }
 
+    function renderAssistantMessage(div, text) {
+      div.textContent = "";
+      const regex = /```([\w-]*)\n([\s\S]*?)```/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const plain = text.slice(lastIndex, match.index);
+        if (plain) div.appendChild(document.createTextNode(plain));
+
+        const lang = match[1] || "code";
+        const code = match[2] || "";
+        const wrap = document.createElement("div");
+        wrap.className = "code-block";
+        const header = document.createElement("div");
+        header.className = "code-header";
+        const label = document.createElement("span");
+        label.textContent = lang;
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-code";
+        copyBtn.textContent = "Copy code";
+        copyBtn.onclick = async () => {
+          await navigator.clipboard.writeText(code);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => { copyBtn.textContent = "Copy code"; }, 1200);
+        };
+        header.append(label, copyBtn);
+        const pre = document.createElement("pre");
+        pre.textContent = code;
+        wrap.append(header, pre);
+        div.appendChild(wrap);
+        lastIndex = regex.lastIndex;
+      }
+      const tail = text.slice(lastIndex);
+      if (tail) div.appendChild(document.createTextNode(tail));
+    }
+
     function appendMessage(role, text, type = "", save = true) {
       const div = document.createElement("div");
       const baseClass = role === "You" ? "msg user" : "msg bot";
       div.className = type === "error" ? "msg error" : baseClass;
-      div.textContent = text;
+      if (role === "You" || type === "error") {
+        div.textContent = text;
+      } else {
+        renderAssistantMessage(div, text);
+      }
       chatbox.appendChild(div);
       chatbox.scrollTop = chatbox.scrollHeight;
       if (save) saveMessage(role, text, type);
+      return div;
+    }
+
+    function updateTokensLeft(used = 0) {
+      const remaining = Math.max(0, MAX_OUTPUT_TOKENS - Number(used || 0));
+      tokensLeft.textContent = `Tokens left: ${remaining}`;
     }
 
     function appendImagePreview(dataUrl, save = true) {
@@ -435,14 +527,36 @@
           })
         });
 
-        const data = await response.json().catch(() => ({}));
-
         if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
           appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.", "error");
           return;
         }
-
-        appendMessage("Owen.Ai", data.reply || "No response.");
+        const botDiv = appendMessage("Owen.Ai", "", "", false);
+        let fullText = "";
+        let buffer = "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const payload = line.slice(6).trim();
+            if (!payload || payload === "[DONE]") continue;
+            const chunk = JSON.parse(payload);
+            if (chunk.delta) {
+              fullText += chunk.delta;
+              renderAssistantMessage(botDiv, fullText);
+              chatbox.scrollTop = chatbox.scrollHeight;
+            }
+            if (chunk.usedOutputTokens !== undefined) updateTokensLeft(chunk.usedOutputTokens);
+          }
+        }
+        saveMessage("Owen.Ai", fullText, "");
       } catch (error) {
         appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
       } finally {
@@ -466,7 +580,7 @@
 
     document.addEventListener("paste", async event => {
       if (!isLoggedIn()) return;
-      const items = event.clipboardData?.items || [];
+	      const items = event.clipboardData?.items || [];
       for (const item of items) {
         if (item.type && item.type.startsWith("image/")) {
           const file = item.getAsFile();

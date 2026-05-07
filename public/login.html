@@ -61,6 +61,11 @@
       cursor: pointer;
     }
     .ghost { background: rgba(255,255,255,0.12); }
+    .google {
+      background: #fff;
+      color: #1f2447;
+      border: 1px solid rgba(255,255,255,0.35);
+    }
     .status { min-height: 20px; margin-top: 10px; font-size: 13px; color: var(--muted); }
     .status.error { color: var(--error); }
   </style>
@@ -78,6 +83,10 @@
     <div class="row">
       <button onclick="login()">Login</button>
       <button class="ghost" onclick="signup()">Sign Up</button>
+    </div>
+    <div class="row">
+      <a class="btn google" href="/auth/google">Continue with Google</a>
+      <div></div>
     </div>
 
     <div id="authStatus" class="status"></div>
