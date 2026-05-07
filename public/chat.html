@@ -172,7 +172,7 @@
       border-top: 1px solid rgba(255,255,255,0.12);
       padding: 12px;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr auto;
       align-items: center;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
@@ -426,6 +426,42 @@
 
     function goToLogin() {
       window.location.href = "/login";
+    }
+
+    function renderAssistantMessage(div, text) {
+      div.textContent = "";
+      const regex = /```([\w-]*)\n([\s\S]*?)```/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const plain = text.slice(lastIndex, match.index);
+        if (plain) div.appendChild(document.createTextNode(plain));
+
+        const lang = match[1] || "code";
+        const code = match[2] || "";
+        const wrap = document.createElement("div");
+        wrap.className = "code-block";
+        const header = document.createElement("div");
+        header.className = "code-header";
+        const label = document.createElement("span");
+        label.textContent = lang;
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-code";
+        copyBtn.textContent = "Copy code";
+        copyBtn.onclick = async () => {
+          await navigator.clipboard.writeText(code);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => { copyBtn.textContent = "Copy code"; }, 1200);
+        };
+        header.append(label, copyBtn);
+        const pre = document.createElement("pre");
+        pre.textContent = code;
+        wrap.append(header, pre);
+        div.appendChild(wrap);
+        lastIndex = regex.lastIndex;
+      }
+      const tail = text.slice(lastIndex);
+      if (tail) div.appendChild(document.createTextNode(tail));
     }
 
     function renderAssistantMessage(div, text) {
