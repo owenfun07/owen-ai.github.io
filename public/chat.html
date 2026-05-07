@@ -171,7 +171,7 @@
       border-top: 1px solid rgba(255,255,255,0.12);
       padding: 12px;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr auto;
       align-items: center;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
@@ -330,7 +330,6 @@
 
     <div class="composer">
       <input id="imageInput" type="file" accept="image/*" hidden onchange="handleImageFile(event)" />
-      <button class="icon-btn" id="imageBtn" onclick="pickImage()" title="Upload image" hidden>📷</button>
       <input
         id="userInput"
         placeholder="Message Owen.Ai…"
@@ -347,7 +346,6 @@
     const input = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
-    const imageBtn = document.getElementById("imageBtn");
     const imageInput = document.getElementById("imageInput");
     const tokensLeft = document.getElementById("tokensLeft");
     const MAX_OUTPUT_TOKENS = 700;
