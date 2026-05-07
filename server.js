@@ -164,9 +164,23 @@ app.get("/auth/google/callback", async (req, res) => {
 
     const googleUsername = `google_${profile.sub}`;
     const safeUsername = escapeHtml(googleUsername);
+    const safeName = escapeHtml(profile.name || profile.given_name || googleUsername);
     return res.send(`<!doctype html><html><body><script>
-      localStorage.setItem("owen_user", "${safeUsername}");
-      window.location.href = "/chat.html";
+      const payload = { type: "google-auth-success", username: "${safeUsername}", name: "${safeName}" };
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(payload, window.location.origin);
+          window.close();
+        } else {
+          localStorage.setItem("owen_user", payload.username);
+          localStorage.setItem("owen_user_name", payload.name);
+          window.location.href = "/chat.html";
+        }
+      } catch (e) {
+        localStorage.setItem("owen_user", payload.username);
+        localStorage.setItem("owen_user_name", payload.name);
+        window.location.href = "/chat.html";
+      }
     </script></body></html>`);
   } catch (error) {
     return res.status(500).send("Google login failed.");

@@ -351,6 +351,7 @@
     const MAX_OUTPUT_TOKENS = 700;
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
+    let currentDisplayName = localStorage.getItem("owen_user_name") || currentUser;
     let pendingImage = null;
 
     function isLoggedIn() {
@@ -391,7 +392,8 @@
 
     function refreshAuthUi() {
       const loggedIn = isLoggedIn();
-      welcomeUser.textContent = loggedIn ? `Hi, ${currentUser}` : "Guest mode";
+      welcomeUser.textContent = loggedIn ? `Hi, ${currentDisplayName}` : "Guest mode";
+      imageBtn.hidden = !loggedIn;
     }
 
     function goToLogin() {
