@@ -58,6 +58,7 @@
       justify-content: space-between;
       gap: 10px;
     }
+    .chat-controls { display: flex; gap: 8px; }
 
     .brand {
       display: flex;
@@ -327,6 +328,10 @@
           <p class="subtitle">Friendly • Playful • Helpful</p>
         </div>
       </div>
+      <div class="chat-controls">
+        <select id="chatSelect"></select>
+        <button id="newChatBtn" type="button">New Chat</button>
+      </div>
       <div class="auth">
         <span id="welcomeUser" class="welcome"></span>
         <button id="loginBtn" onclick="goToLogin()">Login / Sign up</button>
@@ -345,9 +350,7 @@
     <div class="composer-wrap">
     <div id="attachmentsPreview" class="attachments-preview"></div>
     <div class="composer">
-      <input id="imageInput" type="file" accept="image/*" hidden onchange="handleImageFile(event)" />
       <input id="fileInput" type="file" hidden onchange="handleFile(event)" />
-      <button class="icon-btn" id="imageBtn" onclick="pickImage()" title="Upload image" hidden>📷</button>
       <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
       <input
         id="userInput"
@@ -367,9 +370,9 @@
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
     const loginBtn = document.getElementById("loginBtn");
-    const imageBtn = document.getElementById("imageBtn");
+    const chatSelect = document.getElementById("chatSelect");
+    const newChatBtn = document.getElementById("newChatBtn");
     const fileBtn = document.getElementById("fileBtn");
-    const imageInput = document.getElementById("imageInput");
     const fileInput = document.getElementById("fileInput");
     const attachmentsPreview = document.getElementById("attachmentsPreview");
     const tokensLeft = document.getElementById("tokensLeft");
@@ -379,22 +382,56 @@
     let currentDisplayName = localStorage.getItem("owen_user_name") || currentUser;
     let pendingImage = null;
     let pendingFile = null;
+    let currentChatId = "";
 
     function isLoggedIn() {
       return Boolean(currentUser);
     }
 
     function historyKey() {
-      return `owen_chat_${currentUser}`;
+      return `owen_chats_${currentUser}`;
+    }
+    function chatsIndexKey() {
+      return `owen_chat_index_${currentUser}`;
+    }
+    function getChatIndex() {
+      try { return JSON.parse(localStorage.getItem(chatsIndexKey()) || "[]"); } catch { return []; }
+    }
+    function saveChatIndex(index) {
+      localStorage.setItem(chatsIndexKey(), JSON.stringify(index));
+    }
+    function createChat() {
+      const id = `chat_${Date.now()}`;
+      const index = getChatIndex();
+      index.unshift({ id, title: "New chat", updatedAt: Date.now() });
+      saveChatIndex(index.slice(0, 30));
+      const chats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      chats[id] = [];
+      localStorage.setItem(historyKey(), JSON.stringify(chats));
+      currentChatId = id;
+      renderChatSelector();
+      renderHistory();
+    }
+    function renderChatSelector() {
+      if (!isLoggedIn()) return;
+      const index = getChatIndex();
+      chatSelect.innerHTML = "";
+      index.forEach(chat => {
+        const opt = document.createElement("option");
+        opt.value = chat.id;
+        opt.textContent = chat.title;
+        chatSelect.appendChild(opt);
+      });
+      chatSelect.value = currentChatId || index[0]?.id || "";
     }
 
     function renderHistory() {
       chatbox.innerHTML = "";
       if (!isLoggedIn()) return;
-      const raw = localStorage.getItem(historyKey());
-      if (!raw) return;
+      const raw = localStorage.getItem(historyKey()) || "{}";
       try {
-        const items = JSON.parse(raw);
+        const allChats = JSON.parse(raw);
+        const items = allChats[currentChatId] || [];
         if (!Array.isArray(items)) return;
         items.forEach(item => appendMessage(item.role, item.text, item.type || "", false));
       } catch (error) {
@@ -404,64 +441,41 @@
 
     function saveMessage(role, text, type = "") {
       if (!isLoggedIn()) return;
-      const raw = localStorage.getItem(historyKey());
+      const raw = localStorage.getItem(historyKey()) || "{}";
       let items = [];
       try {
-        items = raw ? JSON.parse(raw) : [];
+        const allChats = JSON.parse(raw);
+        items = Array.isArray(allChats[currentChatId]) ? allChats[currentChatId] : [];
       } catch (error) {
         items = [];
       }
       items.push({ role, text, type, ts: Date.now() });
       items = items.slice(-100);
-      localStorage.setItem(historyKey(), JSON.stringify(items));
+      const allChats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      allChats[currentChatId] = items;
+      localStorage.setItem(historyKey(), JSON.stringify(allChats));
+      const index = getChatIndex();
+      const firstUserMsg = items.find(x => x.role === "You" && x.text)?.text || "New chat";
+      const existing = index.find(x => x.id === currentChatId);
+      if (existing) {
+        existing.title = firstUserMsg.slice(0, 28);
+        existing.updatedAt = Date.now();
+      }
+      saveChatIndex(index.sort((a, b) => b.updatedAt - a.updatedAt));
+      renderChatSelector();
     }
 
     function refreshAuthUi() {
       const loggedIn = isLoggedIn();
       welcomeUser.textContent = loggedIn ? `Hi, ${currentDisplayName}` : "Guest mode";
-      imageBtn.hidden = !loggedIn;
       fileBtn.hidden = !loggedIn;
       loginBtn.hidden = loggedIn;
+      chatSelect.hidden = !loggedIn;
+      newChatBtn.hidden = !loggedIn;
     }
 
     function goToLogin() {
       window.location.href = "/login";
-    }
-
-    function renderAssistantMessage(div, text) {
-      div.textContent = "";
-      const regex = /```([\w-]*)\n([\s\S]*?)```/g;
-      let lastIndex = 0;
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        const plain = text.slice(lastIndex, match.index);
-        if (plain) div.appendChild(document.createTextNode(plain));
-
-        const lang = match[1] || "code";
-        const code = match[2] || "";
-        const wrap = document.createElement("div");
-        wrap.className = "code-block";
-        const header = document.createElement("div");
-        header.className = "code-header";
-        const label = document.createElement("span");
-        label.textContent = lang;
-        const copyBtn = document.createElement("button");
-        copyBtn.className = "copy-code";
-        copyBtn.textContent = "Copy code";
-        copyBtn.onclick = async () => {
-          await navigator.clipboard.writeText(code);
-          copyBtn.textContent = "Copied!";
-          setTimeout(() => { copyBtn.textContent = "Copy code"; }, 1200);
-        };
-        header.append(label, copyBtn);
-        const pre = document.createElement("pre");
-        pre.textContent = code;
-        wrap.append(header, pre);
-        div.appendChild(wrap);
-        lastIndex = regex.lastIndex;
-      }
-      const tail = text.slice(lastIndex);
-      if (tail) div.appendChild(document.createTextNode(tail));
     }
 
     function renderAssistantMessage(div, text) {
@@ -543,9 +557,24 @@
       if (!loading) input.focus();
     }
 
-    function pickImage() {
+    function pickFile() {
       if (!isLoggedIn()) return;
-      imageInput.click();
+      fileInput.click();
+    }
+    function renderAttachmentChips() {
+      attachmentsPreview.innerHTML = "";
+      if (pendingImage?.fileName) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `🖼 ${pendingImage.fileName}`;
+        attachmentsPreview.appendChild(chip);
+      }
+      if (pendingFile?.name) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `📄 ${pendingFile.name}`;
+        attachmentsPreview.appendChild(chip);
+      }
     }
     function pickFile() {
       if (!isLoggedIn()) return;
@@ -576,25 +605,23 @@
       });
     }
 
-    async function handleImageFile(event) {
-      if (!isLoggedIn()) return;
-      const file = event.target.files?.[0];
-      if (!file) return;
-      const dataUrl = await readFileAsDataUrl(file);
-      const base64 = String(dataUrl).split(",")[1] || "";
-      pendingImage = {
-        fileName: file.name || "image",
-        mimeType: file.type || "image/png",
-        data: base64,
-        preview: dataUrl
-      };
-      renderAttachmentChips();
-    }
     async function handleFile(event) {
       if (!isLoggedIn()) return;
       const file = event.target.files?.[0];
       if (!file) return;
       pendingFile = { name: file.name || "file" };
+      if (file.type && file.type.startsWith("image/")) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const base64 = String(dataUrl).split(",")[1] || "";
+        pendingImage = {
+          fileName: file.name || "image",
+          mimeType: file.type || "image/png",
+          data: base64,
+          preview: dataUrl
+        };
+      } else {
+        pendingImage = null;
+      }
       renderAttachmentChips();
     }
 
@@ -658,7 +685,6 @@
         pendingImage = null;
         pendingFile = null;
         attachmentsPreview.innerHTML = "";
-        imageInput.value = "";
         fileInput.value = "";
         setLoading(false);
       }
@@ -666,6 +692,12 @@
 
     window.onload = () => {
       refreshAuthUi();
+      if (isLoggedIn()) {
+        const index = getChatIndex();
+        if (!index.length) createChat();
+        currentChatId = index[0]?.id || currentChatId;
+        renderChatSelector();
+      }
       renderHistory();
 
       const firstMessage = localStorage.getItem("firstMessage");
@@ -685,18 +717,24 @@
           if (!file) return;
           const dataUrl = await readFileAsDataUrl(file);
           const base64 = String(dataUrl).split(",")[1] || "";
-          pendingImage = {
+	          pendingImage = {
             fileName: file.name || "pasted-image",
             mimeType: file.type || "image/png",
             data: base64,
             preview: dataUrl
-          };
-          renderAttachmentChips();
+	          };
+            pendingFile = { name: file.name || "pasted-image.png" };
+	          renderAttachmentChips();
           event.preventDefault();
           return;
         }
       }
-    });
+	    });
+      chatSelect.addEventListener("change", () => {
+        currentChatId = chatSelect.value;
+        renderHistory();
+      });
+      newChatBtn.addEventListener("click", createChat);
 
   </script>
 </body>
