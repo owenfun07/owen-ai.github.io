@@ -7,6 +7,8 @@ dotenv.config(); // load GEMINI_API_KEY
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static("public"));
+app.get("/chat", (req, res) => res.sendFile(`${__dirname}/public/chat.html`));
+app.get("/login", (req, res) => res.sendFile(`${__dirname}/public/login.html`));
 
 const GEMINI_MODEL_URL_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
@@ -174,12 +176,12 @@ app.get("/auth/google/callback", async (req, res) => {
         } else {
           localStorage.setItem("owen_user", payload.username);
           localStorage.setItem("owen_user_name", payload.name);
-          window.location.href = "/chat.html";
+          window.location.href = "/chat";
         }
       } catch (e) {
         localStorage.setItem("owen_user", payload.username);
         localStorage.setItem("owen_user_name", payload.name);
-        window.location.href = "/chat.html";
+        window.location.href = "/chat";
       }
     </script></body></html>`);
   } catch (error) {

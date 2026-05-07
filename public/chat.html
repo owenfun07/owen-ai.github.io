@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/logo.png" />
   <title>Owen.Ai Chat</title>
   <style>
     :root {
@@ -176,6 +177,19 @@
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
     }
+    .composer-wrap { border-top: 1px solid rgba(255,255,255,0.12); background: rgba(6, 8, 22, 0.45); }
+    .attachments-preview { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 0; }
+    .attach-chip {
+      background: #1a214d;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 6px 10px;
+      font-size: 12px;
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     .icon-btn {
       padding: 0 12px;
@@ -315,7 +329,7 @@
       </div>
       <div class="auth">
         <span id="welcomeUser" class="welcome"></span>
-        <button onclick="goToLogin()">Login / Sign up</button>
+        <button id="loginBtn" onclick="goToLogin()">Login / Sign up</button>
       </div>
     </header>
 
@@ -328,14 +342,20 @@
       <span>Owen is thinking…</span>
     </div>
 
+    <div class="composer-wrap">
+    <div id="attachmentsPreview" class="attachments-preview"></div>
     <div class="composer">
       <input id="imageInput" type="file" accept="image/*" hidden onchange="handleImageFile(event)" />
+      <input id="fileInput" type="file" hidden onchange="handleFile(event)" />
+      <button class="icon-btn" id="imageBtn" onclick="pickImage()" title="Upload image" hidden>📷</button>
+      <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
       <input
         id="userInput"
         placeholder="Message Owen.Ai…"
         onkeydown="if(event.key==='Enter') sendMessage();"
       />
       <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
     </div>
     <div class="tokens" id="tokensLeft">Tokens left: 700</div>
   </main>
@@ -346,13 +366,19 @@
     const input = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
+    const loginBtn = document.getElementById("loginBtn");
+    const imageBtn = document.getElementById("imageBtn");
+    const fileBtn = document.getElementById("fileBtn");
     const imageInput = document.getElementById("imageInput");
+    const fileInput = document.getElementById("fileInput");
+    const attachmentsPreview = document.getElementById("attachmentsPreview");
     const tokensLeft = document.getElementById("tokensLeft");
     const MAX_OUTPUT_TOKENS = 700;
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
     let currentDisplayName = localStorage.getItem("owen_user_name") || currentUser;
     let pendingImage = null;
+    let pendingFile = null;
 
     function isLoggedIn() {
       return Boolean(currentUser);
@@ -394,10 +420,48 @@
       const loggedIn = isLoggedIn();
       welcomeUser.textContent = loggedIn ? `Hi, ${currentDisplayName}` : "Guest mode";
       imageBtn.hidden = !loggedIn;
+      fileBtn.hidden = !loggedIn;
+      loginBtn.hidden = loggedIn;
     }
 
     function goToLogin() {
-      window.location.href = "/login.html";
+      window.location.href = "/login";
+    }
+
+    function renderAssistantMessage(div, text) {
+      div.textContent = "";
+      const regex = /```([\w-]*)\n([\s\S]*?)```/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const plain = text.slice(lastIndex, match.index);
+        if (plain) div.appendChild(document.createTextNode(plain));
+
+        const lang = match[1] || "code";
+        const code = match[2] || "";
+        const wrap = document.createElement("div");
+        wrap.className = "code-block";
+        const header = document.createElement("div");
+        header.className = "code-header";
+        const label = document.createElement("span");
+        label.textContent = lang;
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-code";
+        copyBtn.textContent = "Copy code";
+        copyBtn.onclick = async () => {
+          await navigator.clipboard.writeText(code);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => { copyBtn.textContent = "Copy code"; }, 1200);
+        };
+        header.append(label, copyBtn);
+        const pre = document.createElement("pre");
+        pre.textContent = code;
+        wrap.append(header, pre);
+        div.appendChild(wrap);
+        lastIndex = regex.lastIndex;
+      }
+      const tail = text.slice(lastIndex);
+      if (tail) div.appendChild(document.createTextNode(tail));
     }
 
     function renderAssistantMessage(div, text) {
@@ -483,6 +547,25 @@
       if (!isLoggedIn()) return;
       imageInput.click();
     }
+    function pickFile() {
+      if (!isLoggedIn()) return;
+      fileInput.click();
+    }
+    function renderAttachmentChips() {
+      attachmentsPreview.innerHTML = "";
+      if (pendingImage?.fileName) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `🖼 ${pendingImage.fileName}`;
+        attachmentsPreview.appendChild(chip);
+      }
+      if (pendingFile?.name) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `📄 ${pendingFile.name}`;
+        attachmentsPreview.appendChild(chip);
+      }
+    }
 
     function readFileAsDataUrl(file) {
       return new Promise((resolve, reject) => {
@@ -500,11 +583,19 @@
       const dataUrl = await readFileAsDataUrl(file);
       const base64 = String(dataUrl).split(",")[1] || "";
       pendingImage = {
+        fileName: file.name || "image",
         mimeType: file.type || "image/png",
         data: base64,
         preview: dataUrl
       };
-      appendMessage("You", "📎 Image attached");
+      renderAttachmentChips();
+    }
+    async function handleFile(event) {
+      if (!isLoggedIn()) return;
+      const file = event.target.files?.[0];
+      if (!file) return;
+      pendingFile = { name: file.name || "file" };
+      renderAttachmentChips();
     }
 
     async function sendMessage() {
@@ -515,6 +606,7 @@
 
       if (message) appendMessage("You", message);
       if (pendingImage?.preview) appendImagePreview(pendingImage.preview);
+      if (pendingFile?.name) appendMessage("You", `📎 ${pendingFile.name}`);
       input.value = "";
       setLoading(true);
 
@@ -525,7 +617,8 @@
           body: JSON.stringify({
             message,
             user: currentUser || "guest",
-            image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null
+            image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null,
+            fileName: pendingFile?.name || null
           })
         });
 
@@ -563,7 +656,10 @@
         appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
       } finally {
         pendingImage = null;
+        pendingFile = null;
+        attachmentsPreview.innerHTML = "";
         imageInput.value = "";
+        fileInput.value = "";
         setLoading(false);
       }
     }
@@ -590,11 +686,12 @@
           const dataUrl = await readFileAsDataUrl(file);
           const base64 = String(dataUrl).split(",")[1] || "";
           pendingImage = {
+            fileName: file.name || "pasted-image",
             mimeType: file.type || "image/png",
             data: base64,
             preview: dataUrl
           };
-          appendMessage("You", "📎 Image pasted");
+          renderAttachmentChips();
           event.preventDefault();
           return;
         }

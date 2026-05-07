@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Owen.AI</title>
   <link rel="icon" type="image/png" href="/logo.png" />
+  <title>Owen.Ai</title>
   <style>
     body {
       margin: 0;
@@ -70,14 +70,14 @@
     <div class="start">
       <input id="startInput" placeholder="Optional first message..." onkeydown="if(event.key==='Enter') goChat();" />
       <button onclick="goChat()">Chat now</button>
-      <a class="btn secondary" id="loginLink" href="/login.html">Login / Sign up</a>
+      <a class="btn secondary" id="loginLink" href="/login">Login / Sign up</a>
     </div>
   </div>
   <script>
     function goChat() {
       const firstMessage = document.getElementById("startInput").value.trim();
       if (firstMessage) localStorage.setItem("firstMessage", firstMessage);
-      window.location.href = "/chat.html";
+      window.location.href = "/chat";
     }
     (function initHomeAuth() {
       const username = localStorage.getItem("owen_user");

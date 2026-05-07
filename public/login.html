@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/logo.png" />
   <title>Owen.Ai Login</title>
   <style>
     :root {
@@ -187,7 +188,7 @@
         localStorage.setItem("owen_user_name", eventMsg.data.name || eventMsg.data.username);
         setStatus(`Logged in as ${eventMsg.data.name || eventMsg.data.username}`);
         stopLoading();
-        window.location.href = "/chat.html";
+        window.location.href = "/chat";
       }, { once: true });
     }
 
