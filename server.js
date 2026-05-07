@@ -219,11 +219,14 @@ app.post("/chat", async (req, res) => {
 
     const reader = response.body;
     let raw = "";
+    let rawAll = "";
     let finalText = "";
     let usedOutputTokens = 0;
 
     for await (const chunk of reader) {
-      raw += chunk.toString("utf8");
+      const chunkText = chunk.toString("utf8");
+      rawAll += chunkText;
+      raw += chunkText;
       const events = raw.split("\n\n");
       raw = events.pop() || "";
       for (const event of events) {
@@ -243,6 +246,30 @@ app.post("/chat", async (req, res) => {
           res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
         }
         usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+      }
+    }
+
+    if (!finalText.trim()) {
+      // Fallback: some responses can arrive as JSON (non-SSE) depending on proxy/runtime behavior.
+      const fallbackPayload = rawAll.trim();
+      if (fallbackPayload) {
+        try {
+          const parsed = JSON.parse(fallbackPayload);
+          if (Array.isArray(parsed)) {
+            finalText = parsed.map(extractModelText).join("");
+            for (const item of parsed) {
+              usedOutputTokens = item?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+            }
+          } else {
+            finalText = extractModelText(parsed);
+            usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+          }
+          if (finalText) {
+            res.write(`data: ${JSON.stringify({ delta: finalText, usedOutputTokens })}\n\n`);
+          }
+        } catch (error) {
+          // Keep empty finalText and return a helpful fallback message below.
+        }
       }
     }
 
