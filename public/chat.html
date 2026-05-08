@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/logo.png" />
-  <title>Owen.Ai Chat</title>
+  <title>Owen AI Chat</title>
   <style>
     :root {
       --bg: #0f1226;
@@ -35,6 +35,20 @@
       place-items: center;
       padding: 20px;
     }
+    .layout { width: min(1100px, 100%); display: flex; gap: 12px; }
+    .sidebar {
+      width: 240px;
+      background: rgba(10, 14, 36, 0.92);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      padding: 12px;
+      transform: translateX(-260px);
+      opacity: 0;
+      pointer-events: none;
+      transition: 180ms ease;
+    }
+    .sidebar.show { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .sidebar-toggle { align-self: flex-start; }
 
     .app {
       width: min(920px, 100%);
@@ -173,7 +187,7 @@
       border-top: 1px solid rgba(255,255,255,0.12);
       padding: 12px;
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr auto auto;
       align-items: center;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
@@ -193,7 +207,7 @@
     }
 
     .icon-btn {
-      padding: 0 12px;
+      padding: 0 10px;
     }
 
     .icon-btn[hidden] {
@@ -232,7 +246,7 @@
     }
 
     #sendBtn,
-    #imageBtn {
+    #fileBtn {
       height: 44px;
       line-height: 44px;
       padding-top: 0;
@@ -318,7 +332,14 @@
     }
   </style>
 </head>
-<body>
+  <body>
+  <div class="layout">
+  <button id="sidebarToggle" class="sidebar-toggle">Chats</button>
+  <aside id="historySidebar" class="sidebar">
+    <h3 style="margin:0 0 8px 0;">Chat History</h3>
+    <select id="chatSelect" style="width:100%; margin-bottom:8px;"></select>
+    <button id="newChatBtn" type="button" style="width:100%;">New Chat</button>
+  </aside>
   <main class="app">
     <header class="header">
       <div class="brand">
@@ -362,6 +383,7 @@
     </div>
     <div class="tokens" id="tokensLeft">Tokens left: 700</div>
   </main>
+  </div>
 
   <script>
     const chatbox = document.getElementById("chatbox");
@@ -370,6 +392,8 @@
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
     const loginBtn = document.getElementById("loginBtn");
+    const sidebarToggle = document.getElementById("sidebarToggle");
+    const historySidebar = document.getElementById("historySidebar");
     const chatSelect = document.getElementById("chatSelect");
     const newChatBtn = document.getElementById("newChatBtn");
     const fileBtn = document.getElementById("fileBtn");
@@ -569,26 +593,7 @@
         chip.textContent = `🖼 ${pendingImage.fileName}`;
         attachmentsPreview.appendChild(chip);
       }
-      if (pendingFile?.name) {
-        const chip = document.createElement("div");
-        chip.className = "attach-chip";
-        chip.textContent = `📄 ${pendingFile.name}`;
-        attachmentsPreview.appendChild(chip);
-      }
-    }
-    function pickFile() {
-      if (!isLoggedIn()) return;
-      fileInput.click();
-    }
-    function renderAttachmentChips() {
-      attachmentsPreview.innerHTML = "";
-      if (pendingImage?.fileName) {
-        const chip = document.createElement("div");
-        chip.className = "attach-chip";
-        chip.textContent = `🖼 ${pendingImage.fileName}`;
-        attachmentsPreview.appendChild(chip);
-      }
-      if (pendingFile?.name) {
+      if (pendingFile?.name && !(pendingImage?.fileName && pendingFile.name === pendingImage.fileName)) {
         const chip = document.createElement("div");
         chip.className = "attach-chip";
         chip.textContent = `📄 ${pendingFile.name}`;
@@ -633,7 +638,7 @@
 
       if (message) appendMessage("You", message);
       if (pendingImage?.preview) appendImagePreview(pendingImage.preview);
-      if (pendingFile?.name) appendMessage("You", `📎 ${pendingFile.name}`);
+      if (pendingFile?.name && !pendingImage?.preview) appendMessage("You", `📎 ${pendingFile.name}`);
       input.value = "";
       setLoading(true);
 
@@ -735,6 +740,9 @@
         renderHistory();
       });
       newChatBtn.addEventListener("click", createChat);
+      sidebarToggle.addEventListener("click", () => {
+        historySidebar.classList.toggle("show");
+      });
 
   </script>
 </body>
