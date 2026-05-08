@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Owen.Ai Chat</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <title>Owen AI Chat</title>
   <style>
     :root {
       --bg: #0f1226;
@@ -34,6 +35,24 @@
       place-items: center;
       padding: 20px;
     }
+    .layout { width: min(920px, 100%); position: relative; display: grid; place-items: center; }
+    .sidebar {
+      width: 240px;
+      background: rgba(10, 14, 36, 0.92);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      padding: 12px;
+      position: absolute;
+      left: -252px;
+      top: 0;
+      bottom: 0;
+      transform: translateX(-12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: 180ms ease;
+    }
+    .sidebar.show { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .sidebar-toggle { position: absolute; left: -86px; top: 6px; }
 
     .app {
       width: min(920px, 100%);
@@ -121,9 +140,12 @@
     }
 
     .msg.bot {
-      align-self: flex-start;
-      background: var(--panel-soft);
-      border: 1px solid rgba(255,255,255,0.11);
+      align-self: stretch;
+      max-width: 100%;
+      padding: 2px 4px;
+      background: transparent;
+      border: none;
+      color: #d9e0ff;
     }
 
     .msg.error {
@@ -168,14 +190,27 @@
       border-top: 1px solid rgba(255,255,255,0.12);
       padding: 12px;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr auto auto;
       align-items: center;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
     }
+    .composer-wrap { border-top: 1px solid rgba(255,255,255,0.12); background: rgba(6, 8, 22, 0.45); }
+    .attachments-preview { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 0; }
+    .attach-chip {
+      background: #1a214d;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 6px 10px;
+      font-size: 12px;
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     .icon-btn {
-      padding: 0 12px;
+      padding: 0 10px;
     }
 
     .icon-btn[hidden] {
@@ -184,14 +219,14 @@
 
     #userInput {
       width: 100%;
-      height: 44px;
+      height: 50px;
       background: #111533;
       color: var(--text);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
       padding: 0 14px;
       font-size: 15px;
-      line-height: 44px;
+      line-height: 50px;
       outline: none;
       transition: border-color 180ms ease, box-shadow 180ms ease;
     }
@@ -214,7 +249,7 @@
     }
 
     #sendBtn,
-    #imageBtn {
+    #fileBtn {
       height: 44px;
       line-height: 44px;
       padding-top: 0;
@@ -222,7 +257,55 @@
     }
 
     #sendBtn {
-      min-width: 88px;
+      min-width: 66px;
+      padding: 0 12px;
+      font-size: 13px;
+    }
+
+    #fileBtn {
+      min-width: 66px;
+      font-size: 13px;
+    }
+
+    .tokens {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 0 14px 10px;
+      text-align: right;
+    }
+
+    .code-block {
+      margin: 10px 0;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0f132f;
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 10px;
+      background: #1a214d;
+      font-size: 12px;
+    }
+
+    .copy-code {
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      min-width: 74px;
+    }
+
+    .code-block pre {
+      margin: 0;
+      padding: 10px 12px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #e9eeff;
     }
 
     button:hover {
@@ -257,7 +340,15 @@
     }
   </style>
 </head>
-<body>
+  <body>
+  <div class="layout">
+    <button id="sidebarToggle" class="sidebar-toggle">Chats</button>
+  <aside id="historySidebar" class="sidebar">
+    <h3 style="margin:0 0 8px 0;">Chat History</h3>
+    <select id="chatSelect" style="width:100%; margin-bottom:8px;"></select>
+    <button id="newChatBtn" type="button" style="width:100%; margin-bottom:8px;">New Chat</button>
+    <button id="deleteChatBtn" type="button" style="width:100%; background:#5b2231;">Delete Chat</button>
+  </aside>
   <main class="app">
     <header class="header">
       <div class="brand">
@@ -269,7 +360,7 @@
       </div>
       <div class="auth">
         <span id="welcomeUser" class="welcome"></span>
-        <button onclick="goToLogin()">Login / Sign up</button>
+        <button id="loginBtn" onclick="goToLogin()">Login / Sign up</button>
       </div>
     </header>
 
@@ -282,17 +373,22 @@
       <span>Owen is thinking…</span>
     </div>
 
+    <div class="composer-wrap">
+    <div id="attachmentsPreview" class="attachments-preview"></div>
     <div class="composer">
-      <input id="imageInput" type="file" accept="image/*" hidden onchange="handleImageFile(event)" />
-      <button class="icon-btn" id="imageBtn" onclick="pickImage()" title="Upload image" hidden>📷</button>
+      <input id="fileInput" type="file" hidden onchange="handleFile(event)" />
       <input
         id="userInput"
         placeholder="Message Owen.Ai…"
         onkeydown="if(event.key==='Enter') sendMessage();"
       />
       <button id="sendBtn" onclick="sendMessage()">Send</button>
+      <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
     </div>
+    </div>
+    <div class="tokens" id="tokensLeft">Tokens left: 700</div>
   </main>
+  </div>
 
   <script>
     const chatbox = document.getElementById("chatbox");
@@ -300,27 +396,84 @@
     const input = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
-    const imageBtn = document.getElementById("imageBtn");
-    const imageInput = document.getElementById("imageInput");
+    const loginBtn = document.getElementById("loginBtn");
+    const sidebarToggle = document.getElementById("sidebarToggle");
+    const historySidebar = document.getElementById("historySidebar");
+    const chatSelect = document.getElementById("chatSelect");
+    const newChatBtn = document.getElementById("newChatBtn");
+    const deleteChatBtn = document.getElementById("deleteChatBtn");
+    const fileBtn = document.getElementById("fileBtn");
+    const fileInput = document.getElementById("fileInput");
+    const attachmentsPreview = document.getElementById("attachmentsPreview");
+    const tokensLeft = document.getElementById("tokensLeft");
+    const MAX_OUTPUT_TOKENS = 700;
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
+    let currentDisplayName = localStorage.getItem("owen_user_name") || currentUser;
     let pendingImage = null;
+    let pendingFile = null;
+    let currentChatId = "";
 
     function isLoggedIn() {
       return Boolean(currentUser);
     }
 
     function historyKey() {
-      return `owen_chat_${currentUser}`;
+      return `owen_chats_${currentUser}`;
+    }
+    function chatsIndexKey() {
+      return `owen_chat_index_${currentUser}`;
+    }
+    function getChatIndex() {
+      try { return JSON.parse(localStorage.getItem(chatsIndexKey()) || "[]"); } catch { return []; }
+    }
+    function saveChatIndex(index) {
+      localStorage.setItem(chatsIndexKey(), JSON.stringify(index));
+    }
+    function createChat() {
+      const id = `chat_${Date.now()}`;
+      const index = getChatIndex();
+      index.unshift({ id, title: "New chat", updatedAt: Date.now() });
+      saveChatIndex(index.slice(0, 30));
+      const chats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      chats[id] = [];
+      localStorage.setItem(historyKey(), JSON.stringify(chats));
+      currentChatId = id;
+      renderChatSelector();
+      renderHistory();
+    }
+    function deleteCurrentChat() {
+      if (!currentChatId) return;
+      const index = getChatIndex().filter(x => x.id !== currentChatId);
+      saveChatIndex(index);
+      const chats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      delete chats[currentChatId];
+      localStorage.setItem(historyKey(), JSON.stringify(chats));
+      currentChatId = index[0]?.id || "";
+      if (!currentChatId && isLoggedIn()) return createChat();
+      renderChatSelector();
+      renderHistory();
+    }
+    function renderChatSelector() {
+      if (!isLoggedIn()) return;
+      const index = getChatIndex();
+      chatSelect.innerHTML = "";
+      index.forEach(chat => {
+        const opt = document.createElement("option");
+        opt.value = chat.id;
+        opt.textContent = chat.title;
+        chatSelect.appendChild(opt);
+      });
+      chatSelect.value = currentChatId || index[0]?.id || "";
     }
 
     function renderHistory() {
       chatbox.innerHTML = "";
       if (!isLoggedIn()) return;
-      const raw = localStorage.getItem(historyKey());
-      if (!raw) return;
+      const raw = localStorage.getItem(historyKey()) || "{}";
       try {
-        const items = JSON.parse(raw);
+        const allChats = JSON.parse(raw);
+        const items = allChats[currentChatId] || [];
         if (!Array.isArray(items)) return;
         items.forEach(item => appendMessage(item.role, item.text, item.type || "", false));
       } catch (error) {
@@ -330,36 +483,99 @@
 
     function saveMessage(role, text, type = "") {
       if (!isLoggedIn()) return;
-      const raw = localStorage.getItem(historyKey());
+      const raw = localStorage.getItem(historyKey()) || "{}";
       let items = [];
       try {
-        items = raw ? JSON.parse(raw) : [];
+        const allChats = JSON.parse(raw);
+        items = Array.isArray(allChats[currentChatId]) ? allChats[currentChatId] : [];
       } catch (error) {
         items = [];
       }
       items.push({ role, text, type, ts: Date.now() });
       items = items.slice(-100);
-      localStorage.setItem(historyKey(), JSON.stringify(items));
+      const allChats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      allChats[currentChatId] = items;
+      localStorage.setItem(historyKey(), JSON.stringify(allChats));
+      const index = getChatIndex();
+      const firstUserMsg = items.find(x => x.role === "You" && x.text)?.text || "New chat";
+      const existing = index.find(x => x.id === currentChatId);
+      if (existing) {
+        existing.title = firstUserMsg.slice(0, 28);
+        existing.updatedAt = Date.now();
+      }
+      saveChatIndex(index.sort((a, b) => b.updatedAt - a.updatedAt));
+      renderChatSelector();
     }
 
     function refreshAuthUi() {
       const loggedIn = isLoggedIn();
-      welcomeUser.textContent = loggedIn ? `Hi, ${currentUser}` : "Guest mode";
-      imageBtn.hidden = !loggedIn;
+      welcomeUser.textContent = loggedIn ? `Hi, ${currentDisplayName}` : "Guest mode";
+      fileBtn.hidden = !loggedIn;
+      loginBtn.hidden = loggedIn;
+      chatSelect.hidden = !loggedIn;
+      newChatBtn.hidden = !loggedIn;
+      deleteChatBtn.hidden = !loggedIn;
+      sidebarToggle.hidden = !loggedIn;
     }
 
     function goToLogin() {
-      window.location.href = "/login.html";
+      window.location.href = "/login";
+    }
+
+    function renderAssistantMessage(div, text) {
+      div.textContent = "";
+      const regex = /```([\w-]*)\n([\s\S]*?)```/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const plain = text.slice(lastIndex, match.index);
+        if (plain) div.appendChild(document.createTextNode(plain));
+
+        const lang = match[1] || "code";
+        const code = match[2] || "";
+        const wrap = document.createElement("div");
+        wrap.className = "code-block";
+        const header = document.createElement("div");
+        header.className = "code-header";
+        const label = document.createElement("span");
+        label.textContent = lang;
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-code";
+        copyBtn.textContent = "Copy code";
+        copyBtn.onclick = async () => {
+          await navigator.clipboard.writeText(code);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => { copyBtn.textContent = "Copy code"; }, 1200);
+        };
+        header.append(label, copyBtn);
+        const pre = document.createElement("pre");
+        pre.textContent = code;
+        wrap.append(header, pre);
+        div.appendChild(wrap);
+        lastIndex = regex.lastIndex;
+      }
+      const tail = text.slice(lastIndex);
+      if (tail) div.appendChild(document.createTextNode(tail));
     }
 
     function appendMessage(role, text, type = "", save = true) {
       const div = document.createElement("div");
       const baseClass = role === "You" ? "msg user" : "msg bot";
       div.className = type === "error" ? "msg error" : baseClass;
-      div.textContent = text;
+      if (role === "You" || type === "error") {
+        div.textContent = text;
+      } else {
+        renderAssistantMessage(div, text);
+      }
       chatbox.appendChild(div);
       chatbox.scrollTop = chatbox.scrollHeight;
       if (save) saveMessage(role, text, type);
+      return div;
+    }
+
+    function updateTokensLeft(used = 0) {
+      const remaining = Math.max(0, MAX_OUTPUT_TOKENS - Number(used || 0));
+      tokensLeft.textContent = `Tokens left: ${remaining}`;
     }
 
     function appendImagePreview(dataUrl, save = true) {
@@ -385,9 +601,24 @@
       if (!loading) input.focus();
     }
 
-    function pickImage() {
+    function pickFile() {
       if (!isLoggedIn()) return;
-      imageInput.click();
+      fileInput.click();
+    }
+    function renderAttachmentChips() {
+      attachmentsPreview.innerHTML = "";
+      if (pendingImage?.fileName) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `🖼 ${pendingImage.fileName}`;
+        attachmentsPreview.appendChild(chip);
+      }
+      if (pendingFile?.name && !(pendingImage?.fileName && pendingFile.name === pendingImage.fileName)) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `📄 ${pendingFile.name}`;
+        attachmentsPreview.appendChild(chip);
+      }
     }
 
     function readFileAsDataUrl(file) {
@@ -399,18 +630,24 @@
       });
     }
 
-    async function handleImageFile(event) {
+    async function handleFile(event) {
       if (!isLoggedIn()) return;
       const file = event.target.files?.[0];
       if (!file) return;
-      const dataUrl = await readFileAsDataUrl(file);
-      const base64 = String(dataUrl).split(",")[1] || "";
-      pendingImage = {
-        mimeType: file.type || "image/png",
-        data: base64,
-        preview: dataUrl
-      };
-      appendMessage("You", "📎 Image attached");
+      pendingFile = { name: file.name || "file" };
+      if (file.type && file.type.startsWith("image/")) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const base64 = String(dataUrl).split(",")[1] || "";
+        pendingImage = {
+          fileName: file.name || "image",
+          mimeType: file.type || "image/png",
+          data: base64,
+          preview: dataUrl
+        };
+      } else {
+        pendingImage = null;
+      }
+      renderAttachmentChips();
     }
 
     async function sendMessage() {
@@ -421,6 +658,7 @@
 
       if (message) appendMessage("You", message);
       if (pendingImage?.preview) appendImagePreview(pendingImage.preview);
+      if (pendingFile?.name && !pendingImage?.preview) appendMessage("You", `📎 ${pendingFile.name}`);
       input.value = "";
       setLoading(true);
 
@@ -431,29 +669,60 @@
           body: JSON.stringify({
             message,
             user: currentUser || "guest",
-            image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null
+            image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null,
+            fileName: pendingFile?.name || null
           })
         });
 
-        const data = await response.json().catch(() => ({}));
-
         if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
           appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.", "error");
           return;
         }
-
-        appendMessage("Owen.Ai", data.reply || "No response.");
+        const botDiv = appendMessage("Owen.Ai", "", "", false);
+        let fullText = "";
+        let buffer = "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const payload = line.slice(6).trim();
+            if (!payload || payload === "[DONE]") continue;
+            const chunk = JSON.parse(payload);
+            if (chunk.delta) {
+              fullText += chunk.delta;
+              renderAssistantMessage(botDiv, fullText);
+              chatbox.scrollTop = chatbox.scrollHeight;
+            }
+            if (chunk.usedOutputTokens !== undefined) updateTokensLeft(chunk.usedOutputTokens);
+          }
+        }
+        saveMessage("Owen.Ai", fullText, "");
       } catch (error) {
         appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
       } finally {
         pendingImage = null;
-        imageInput.value = "";
+        pendingFile = null;
+        attachmentsPreview.innerHTML = "";
+        fileInput.value = "";
         setLoading(false);
       }
     }
 
     window.onload = () => {
       refreshAuthUi();
+      if (isLoggedIn()) {
+        const index = getChatIndex();
+        if (!index.length) createChat();
+        currentChatId = index[0]?.id || currentChatId;
+        renderChatSelector();
+      }
       renderHistory();
 
       const firstMessage = localStorage.getItem("firstMessage");
@@ -466,24 +735,35 @@
 
     document.addEventListener("paste", async event => {
       if (!isLoggedIn()) return;
-      const items = event.clipboardData?.items || [];
+	      const items = event.clipboardData?.items || [];
       for (const item of items) {
         if (item.type && item.type.startsWith("image/")) {
           const file = item.getAsFile();
           if (!file) return;
           const dataUrl = await readFileAsDataUrl(file);
           const base64 = String(dataUrl).split(",")[1] || "";
-          pendingImage = {
+	          pendingImage = {
+            fileName: file.name || "pasted-image",
             mimeType: file.type || "image/png",
             data: base64,
             preview: dataUrl
-          };
-          appendMessage("You", "📎 Image pasted");
+	          };
+            pendingFile = { name: file.name || "pasted-image.png" };
+	          renderAttachmentChips();
           event.preventDefault();
           return;
         }
       }
-    });
+	    });
+      chatSelect.addEventListener("change", () => {
+        currentChatId = chatSelect.value;
+        renderHistory();
+      });
+      newChatBtn.addEventListener("click", createChat);
+      deleteChatBtn.addEventListener("click", deleteCurrentChat);
+      sidebarToggle.addEventListener("click", () => {
+        historySidebar.classList.toggle("show");
+      });
 
   </script>
 </body>
