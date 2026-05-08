@@ -35,20 +35,24 @@
       place-items: center;
       padding: 20px;
     }
-    .layout { width: min(1100px, 100%); display: flex; gap: 12px; }
+    .layout { width: min(920px, 100%); position: relative; display: grid; place-items: center; }
     .sidebar {
       width: 240px;
       background: rgba(10, 14, 36, 0.92);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 16px;
       padding: 12px;
-      transform: translateX(-260px);
+      position: absolute;
+      left: -252px;
+      top: 0;
+      bottom: 0;
+      transform: translateX(-12px);
       opacity: 0;
       pointer-events: none;
       transition: 180ms ease;
     }
     .sidebar.show { transform: translateX(0); opacity: 1; pointer-events: auto; }
-    .sidebar-toggle { align-self: flex-start; }
+    .sidebar-toggle { position: absolute; left: -86px; top: 6px; }
 
     .app {
       width: min(920px, 100%);
@@ -254,9 +258,14 @@
     }
 
     #sendBtn {
-      min-width: 56px;
-      padding: 0 10px;
-      font-size: 12px;
+      min-width: 66px;
+      padding: 0 12px;
+      font-size: 13px;
+    }
+
+    #fileBtn {
+      min-width: 66px;
+      font-size: 13px;
     }
 
     .tokens {
@@ -334,11 +343,12 @@
 </head>
   <body>
   <div class="layout">
-  <button id="sidebarToggle" class="sidebar-toggle">Chats</button>
+    <button id="sidebarToggle" class="sidebar-toggle">Chats</button>
   <aside id="historySidebar" class="sidebar">
     <h3 style="margin:0 0 8px 0;">Chat History</h3>
     <select id="chatSelect" style="width:100%; margin-bottom:8px;"></select>
-    <button id="newChatBtn" type="button" style="width:100%;">New Chat</button>
+    <button id="newChatBtn" type="button" style="width:100%; margin-bottom:8px;">New Chat</button>
+    <button id="deleteChatBtn" type="button" style="width:100%; background:#5b2231;">Delete Chat</button>
   </aside>
   <main class="app">
     <header class="header">
@@ -368,13 +378,13 @@
     <div id="attachmentsPreview" class="attachments-preview"></div>
     <div class="composer">
       <input id="fileInput" type="file" hidden onchange="handleFile(event)" />
-      <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
       <input
         id="userInput"
         placeholder="Message Owen.Ai…"
         onkeydown="if(event.key==='Enter') sendMessage();"
       />
       <button id="sendBtn" onclick="sendMessage()">Send</button>
+      <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
     </div>
     </div>
     <div class="tokens" id="tokensLeft">Tokens left: 700</div>
@@ -392,6 +402,7 @@
     const historySidebar = document.getElementById("historySidebar");
     const chatSelect = document.getElementById("chatSelect");
     const newChatBtn = document.getElementById("newChatBtn");
+    const deleteChatBtn = document.getElementById("deleteChatBtn");
     const fileBtn = document.getElementById("fileBtn");
     const fileInput = document.getElementById("fileInput");
     const attachmentsPreview = document.getElementById("attachmentsPreview");
@@ -429,6 +440,18 @@
       chats[id] = [];
       localStorage.setItem(historyKey(), JSON.stringify(chats));
       currentChatId = id;
+      renderChatSelector();
+      renderHistory();
+    }
+    function deleteCurrentChat() {
+      if (!currentChatId) return;
+      const index = getChatIndex().filter(x => x.id !== currentChatId);
+      saveChatIndex(index);
+      const chats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      delete chats[currentChatId];
+      localStorage.setItem(historyKey(), JSON.stringify(chats));
+      currentChatId = index[0]?.id || "";
+      if (!currentChatId && isLoggedIn()) return createChat();
       renderChatSelector();
       renderHistory();
     }
@@ -492,6 +515,8 @@
       loginBtn.hidden = loggedIn;
       chatSelect.hidden = !loggedIn;
       newChatBtn.hidden = !loggedIn;
+      deleteChatBtn.hidden = !loggedIn;
+      sidebarToggle.hidden = !loggedIn;
     }
 
     function goToLogin() {
@@ -736,6 +761,7 @@
         renderHistory();
       });
       newChatBtn.addEventListener("click", createChat);
+      deleteChatBtn.addEventListener("click", deleteCurrentChat);
       sidebarToggle.addEventListener("click", () => {
         historySidebar.classList.toggle("show");
       });

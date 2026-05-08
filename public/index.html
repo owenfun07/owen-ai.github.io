@@ -71,6 +71,7 @@
       <input id="startInput" placeholder="Optional first message..." onkeydown="if(event.key==='Enter') goChat();" />
       <button onclick="goChat()">Chat now</button>
       <a class="btn secondary" id="loginLink" href="/login">Login / Sign up</a>
+      <a class="btn secondary" id="resumeChatLink" href="/chat" style="display:none;">Back to Chat</a>
     </div>
   </div>
   <script>
@@ -86,6 +87,7 @@
       document.getElementById("welcomeHome").textContent = `Hi, ${name}`;
       document.getElementById("homeSubtext").textContent = "You are logged in. Start chatting.";
       document.getElementById("loginLink").style.display = "none";
+      document.getElementById("resumeChatLink").style.display = "inline-block";
     })();
   </script>
 </body>
