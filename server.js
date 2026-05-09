@@ -7,11 +7,16 @@ dotenv.config(); // load GEMINI_API_KEY
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static("public"));
+app.get("/chat", (req, res) => res.sendFile(`${__dirname}/public/chat.html`));
+app.get("/login", (req, res) => res.sendFile(`${__dirname}/public/login.html`));
 
 const GEMINI_MODEL_URL_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "";
 const SYSTEM_INSTRUCTION = [
   "You are Owen.Ai.",
   "Personality: friendly, playful, funny, and always genuinely helpful.",
@@ -23,8 +28,12 @@ const SYSTEM_INSTRUCTION = [
 let memory = [];
 const MAX_MEMORY_MESSAGES = 10;
 
-function buildGeminiUrl() {
-  return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY || "")}`;
+function buildGeminiUrl(stream = false) {
+  const key = encodeURIComponent(process.env.GEMINI_API_KEY || "");
+  if (stream) {
+    return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:streamGenerateContent?alt=sse&key=${key}`;
+  }
+  return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${key}`;
 }
 
 function extractModelText(json) {
@@ -32,8 +41,7 @@ function extractModelText(json) {
   if (!Array.isArray(parts)) return "";
   return parts
     .map(part => (typeof part?.text === "string" ? part.text : ""))
-    .join("")
-    .trim();
+    .join("");
 }
 
 function extractModelIssue(json) {
@@ -99,6 +107,87 @@ async function callAuthService(action, username, password) {
 
   return { ok: Boolean(json?.ok), message: json?.message || "", user: json?.user || null };
 }
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+app.get("/auth/google", (req, res) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_REDIRECT_URI) {
+    return res.status(500).send("Google OAuth is not configured.");
+  }
+
+  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
+  authUrl.searchParams.set("redirect_uri", GOOGLE_REDIRECT_URI);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", "openid email profile");
+  authUrl.searchParams.set("access_type", "online");
+  authUrl.searchParams.set("prompt", "select_account");
+  return res.redirect(authUrl.toString());
+});
+
+app.get("/auth/google/callback", async (req, res) => {
+  try {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
+      return res.status(500).send("Google OAuth is not configured.");
+    }
+    const code = req.query?.code;
+    if (!code) return res.status(400).send("Missing Google authorization code.");
+
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: GOOGLE_REDIRECT_URI,
+        grant_type: "authorization_code"
+      }).toString()
+    });
+    const tokenJson = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok || !tokenJson.access_token) {
+      return res.status(502).send("Google token exchange failed.");
+    }
+
+    const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: { Authorization: `Bearer ${tokenJson.access_token}` }
+    });
+    const profile = await profileResponse.json().catch(() => ({}));
+    if (!profileResponse.ok || !profile.sub) {
+      return res.status(502).send("Failed to read Google profile.");
+    }
+
+    const googleUsername = `google_${profile.sub}`;
+    const safeUsername = escapeHtml(googleUsername);
+    const safeName = escapeHtml(profile.name || profile.given_name || googleUsername);
+    return res.send(`<!doctype html><html><body><script>
+      const payload = { type: "google-auth-success", username: "${safeUsername}", name: "${safeName}" };
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(payload, window.location.origin);
+          window.close();
+        } else {
+          localStorage.setItem("owen_user", payload.username);
+          localStorage.setItem("owen_user_name", payload.name);
+          window.location.href = "/chat";
+        }
+      } catch (e) {
+        localStorage.setItem("owen_user", payload.username);
+        localStorage.setItem("owen_user_name", payload.name);
+        window.location.href = "/chat";
+      }
+    </script></body></html>`);
+  } catch (error) {
+    return res.status(500).send("Google login failed.");
+  }
+});
 
 app.post("/auth/login", async (req, res) => {
   try {
@@ -186,7 +275,7 @@ app.post("/chat", async (req, res) => {
       generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
     };
 
-    const response = await fetch(buildGeminiUrl(), {
+    const response = await fetch(buildGeminiUrl(false), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -210,20 +299,18 @@ app.post("/chat", async (req, res) => {
       }
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
-
     const json = await response.json();
-    const aiText = extractModelText(json);
-    if (!aiText) {
-      const issue = extractModelIssue(json);
-      console.error("Gemini empty response:", issue, JSON.stringify(json).slice(0, 800));
-      return res.status(502).json({ reply: `I couldn't generate text. ${issue}` });
+    const finalText = extractModelText(json).trim();
+    const usedOutputTokens = json?.usageMetadata?.candidatesTokenCount || 0;
+    if (!finalText) {
+      return res.status(502).json({ reply: "I couldn't generate a response.", usedOutputTokens });
     }
 
     memory.push({ role: "user", text: userMessage || "[User sent an image]" });
-    memory.push({ role: "model", text: aiText });
+    memory.push({ role: "model", text: finalText.trim() });
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
 
-    res.json({ reply: aiText });
+    return res.json({ reply: finalText, usedOutputTokens });
   } catch (err) {
     console.error(err);
     res.status(500).json({ reply: "Hmm… network or API error. Try again?" });
