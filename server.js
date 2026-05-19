@@ -275,7 +275,7 @@ app.post("/chat", async (req, res) => {
       generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
     };
 
-    const response = await fetch(buildGeminiUrl(true), {
+    const response = await fetch(buildGeminiUrl(false), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -299,76 +299,18 @@ app.post("/chat", async (req, res) => {
       }
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
-    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-
-    const reader = response.body;
-    let raw = "";
-    let rawAll = "";
-    let finalText = "";
-    let usedOutputTokens = 0;
-
-    for await (const chunk of reader) {
-      const chunkText = chunk.toString("utf8");
-      rawAll += chunkText;
-      raw += chunkText;
-      const events = raw.split("\n\n");
-      raw = events.pop() || "";
-      for (const event of events) {
-        const line = event.split("\n").find(l => l.startsWith("data: "));
-        if (!line) continue;
-        const payload = line.slice(6).trim();
-        if (!payload || payload === "[DONE]") continue;
-        let parsed;
-        try {
-          parsed = JSON.parse(payload);
-        } catch (error) {
-          continue;
-        }
-        const delta = extractModelText(parsed);
-        if (delta) {
-          finalText += delta;
-          res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
-        }
-        usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
-      }
-    }
-
-    if (!finalText.trim()) {
-      // Fallback: some responses can arrive as JSON (non-SSE) depending on proxy/runtime behavior.
-      const fallbackPayload = rawAll.trim();
-      if (fallbackPayload) {
-        try {
-          const parsed = JSON.parse(fallbackPayload);
-          if (Array.isArray(parsed)) {
-            finalText = parsed.map(extractModelText).join("");
-            for (const item of parsed) {
-              usedOutputTokens = item?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
-            }
-          } else {
-            finalText = extractModelText(parsed);
-            usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
-          }
-          if (finalText) {
-            res.write(`data: ${JSON.stringify({ delta: finalText, usedOutputTokens })}\n\n`);
-          }
-        } catch (error) {
-          // Keep empty finalText and return a helpful fallback message below.
-        }
-      }
-    }
-
-    if (!finalText.trim()) {
-      return res.end(`data: ${JSON.stringify({ delta: "I couldn't generate a response.", usedOutputTokens })}\n\ndata: [DONE]\n\n`);
+    const json = await response.json();
+    const finalText = extractModelText(json).trim();
+    const usedOutputTokens = json?.usageMetadata?.candidatesTokenCount || 0;
+    if (!finalText) {
+      return res.status(502).json({ reply: "I couldn't generate a response.", usedOutputTokens });
     }
 
     memory.push({ role: "user", text: userMessage || "[User sent an image]" });
     memory.push({ role: "model", text: finalText.trim() });
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
 
-    res.write(`data: ${JSON.stringify({ usedOutputTokens })}\n\n`);
-    res.end("data: [DONE]\n\n");
+    return res.json({ reply: finalText, usedOutputTokens });
   } catch (err) {
     console.error(err);
     res.status(500).json({ reply: "Hmm… network or API error. Try again?" });

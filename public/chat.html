@@ -37,13 +37,13 @@
     }
     .layout { width: min(920px, 100%); position: relative; display: grid; place-items: center; }
     .sidebar {
-      width: 240px;
+      width: min(240px, 82vw);
       background: rgba(10, 14, 36, 0.92);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 16px;
       padding: 12px;
       position: absolute;
-      left: -252px;
+      left: 0;
       top: 0;
       bottom: 0;
       transform: translateX(-12px);
@@ -52,7 +52,8 @@
       transition: 180ms ease;
     }
     .sidebar.show { transform: translateX(0); opacity: 1; pointer-events: auto; }
-    .sidebar-toggle { position: absolute; left: -86px; top: 6px; }
+    .sidebar-toggle { position: absolute; left: 6px; top: 6px; z-index: 4; }
+    .sidebar-close { float: right; min-width: 34px; }
 
     .app {
       width: min(920px, 100%);
@@ -345,6 +346,7 @@
   <div class="layout">
     <button id="sidebarToggle" class="sidebar-toggle">Chats</button>
   <aside id="historySidebar" class="sidebar">
+    <button id="closeSidebarBtn" class="sidebar-close" type="button">✕</button>
     <h3 style="margin:0 0 8px 0;">Chat History</h3>
     <select id="chatSelect" style="width:100%; margin-bottom:8px;"></select>
     <button id="newChatBtn" type="button" style="width:100%; margin-bottom:8px;">New Chat</button>
@@ -403,6 +405,7 @@
     const chatSelect = document.getElementById("chatSelect");
     const newChatBtn = document.getElementById("newChatBtn");
     const deleteChatBtn = document.getElementById("deleteChatBtn");
+    const closeSidebarBtn = document.getElementById("closeSidebarBtn");
     const fileBtn = document.getElementById("fileBtn");
     const fileInput = document.getElementById("fileInput");
     const attachmentsPreview = document.getElementById("attachmentsPreview");
@@ -675,36 +678,14 @@
           })
         });
 
+        const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
           appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.", "error");
           return;
         }
-        const botDiv = appendMessage("Owen.Ai", "", "", false);
-        let fullText = "";
-        let buffer = "";
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const payload = line.slice(6).trim();
-            if (!payload || payload === "[DONE]") continue;
-            const chunk = JSON.parse(payload);
-            if (chunk.delta) {
-              fullText += chunk.delta;
-              renderAssistantMessage(botDiv, fullText);
-              chatbox.scrollTop = chatbox.scrollHeight;
-            }
-            if (chunk.usedOutputTokens !== undefined) updateTokensLeft(chunk.usedOutputTokens);
-          }
-        }
-        saveMessage("Owen.Ai", fullText, "");
+        appendMessage("Owen.Ai", data.reply || "No response.");
+        if (data.usedOutputTokens !== undefined) updateTokensLeft(data.usedOutputTokens);
       } catch (error) {
         appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
       } finally {
@@ -764,6 +745,9 @@
       deleteChatBtn.addEventListener("click", deleteCurrentChat);
       sidebarToggle.addEventListener("click", () => {
         historySidebar.classList.toggle("show");
+      });
+      closeSidebarBtn.addEventListener("click", () => {
+        historySidebar.classList.remove("show");
       });
 
   </script>
