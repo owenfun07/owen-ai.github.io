@@ -272,7 +272,7 @@ app.post("/chat", async (req, res) => {
     const payload = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
       contents,
-      generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
+      generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
     };
 
     const response = await fetch(buildGeminiUrl(false), {
