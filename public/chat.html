@@ -78,6 +78,7 @@
       justify-content: space-between;
       gap: 10px;
     }
+    .chat-controls { display: flex; gap: 8px; }
 
     .brand {
       display: flex;
@@ -687,6 +688,7 @@
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
           appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.", "error");
           return;
         }
