@@ -410,7 +410,7 @@
     const fileInput = document.getElementById("fileInput");
     const attachmentsPreview = document.getElementById("attachmentsPreview");
     const tokensLeft = document.getElementById("tokensLeft");
-    const MAX_OUTPUT_TOKENS = 700;
+    const MAX_OUTPUT_TOKENS = 8192;
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
     let currentDisplayName = localStorage.getItem("owen_user_name") || currentUser;
