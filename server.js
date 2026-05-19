@@ -24,9 +24,11 @@ const SYSTEM_INSTRUCTION = [
   "Behavior: you enjoy helping people in whatever way you can.",
   "Response quality: keep responses clear, complete, and avoid cutting thoughts off mid-sentence."
 ].join(" ");
+const DAILY_TOKEN_BUDGET = Number(process.env.DAILY_TOKEN_BUDGET || 250000);
 
 let memory = [];
 const MAX_MEMORY_MESSAGES = 10;
+let globalUsedOutputTokens = 0;
 
 function buildGeminiUrl(stream = false) {
   const key = encodeURIComponent(process.env.GEMINI_API_KEY || "");
@@ -309,12 +311,23 @@ app.post("/chat", async (req, res) => {
     memory.push({ role: "user", text: userMessage || "[User sent an image]" });
     memory.push({ role: "model", text: finalText.trim() });
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
+    globalUsedOutputTokens += usedOutputTokens;
 
     return res.json({ reply: finalText, usedOutputTokens });
   } catch (err) {
     console.error(err);
     res.status(500).json({ reply: "Hmm… network or API error. Try again?" });
   }
+});
+
+app.get("/usage", (req, res) => {
+  const used = Math.max(0, globalUsedOutputTokens);
+  const remaining = Math.max(0, DAILY_TOKEN_BUDGET - used);
+  res.json({
+    dailyTokenBudget: DAILY_TOKEN_BUDGET,
+    usedOutputTokens: used,
+    remainingOutputTokens: remaining
+  });
 });
 
 // Temporary test route to check Gemini API key

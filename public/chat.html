@@ -50,6 +50,7 @@
       opacity: 0;
       pointer-events: none;
       transition: 180ms ease;
+      z-index: 20;
     }
     .sidebar.show { transform: translateX(0); opacity: 1; pointer-events: auto; }
     .sidebar-toggle { position: absolute; left: 6px; top: 6px; z-index: 4; }
@@ -389,7 +390,7 @@
       <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
     </div>
     </div>
-    <div class="tokens" id="tokensLeft">Tokens left: 8192</div>
+    <div class="tokens" id="tokensLeft">Global tokens left: --</div>
   </main>
   </div>
 
@@ -410,7 +411,6 @@
     const fileInput = document.getElementById("fileInput");
     const attachmentsPreview = document.getElementById("attachmentsPreview");
     const tokensLeft = document.getElementById("tokensLeft");
-    const MAX_OUTPUT_TOKENS = 8192;
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
     let currentDisplayName = localStorage.getItem("owen_user_name") || currentUser;
@@ -577,9 +577,17 @@
       return div;
     }
 
-    function updateTokensLeft(used = 0) {
-      const remaining = Math.max(0, MAX_OUTPUT_TOKENS - Number(used || 0));
-      tokensLeft.textContent = `Tokens left: ${remaining}`;
+    async function refreshGlobalTokensLeft() {
+      try {
+        const response = await fetch("/usage");
+        const usage = await response.json().catch(() => ({}));
+        if (!response.ok) return;
+        const remaining = Number(usage.remainingOutputTokens);
+        if (!Number.isFinite(remaining)) return;
+        tokensLeft.textContent = `Global tokens left: ${remaining}`;
+      } catch (error) {
+        // Keep previous display if usage endpoint fails.
+      }
     }
 
     function appendImagePreview(dataUrl, save = true) {
@@ -685,7 +693,7 @@
           return;
         }
         appendMessage("Owen.Ai", data.reply || "No response.");
-        if (data.usedOutputTokens !== undefined) updateTokensLeft(data.usedOutputTokens);
+        await refreshGlobalTokensLeft();
       } catch (error) {
         appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
       } finally {
@@ -699,6 +707,7 @@
 
     window.onload = () => {
       refreshAuthUi();
+      refreshGlobalTokensLeft();
       if (isLoggedIn()) {
         const index = getChatIndex();
         if (!index.length) createChat();
