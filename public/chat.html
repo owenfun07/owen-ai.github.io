@@ -526,6 +526,62 @@
       window.location.href = "/login";
     }
 
+    function applyInlineMarkdown(text) {
+      let html = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+      html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+      html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      return html;
+    }
+
+    function renderMarkdownBlock(container, text) {
+      const lines = text.split("\n");
+      let listEl = null;
+      lines.forEach(rawLine => {
+        const line = rawLine.trimEnd();
+        if (!line.trim()) {
+          listEl = null;
+          return;
+        }
+        const heading = line.match(/^(#{1,3})\s+(.+)/);
+        if (heading) {
+          const level = Math.min(3, heading[1].length);
+          const el = document.createElement(`h${level}`);
+          el.innerHTML = applyInlineMarkdown(heading[2]);
+          container.appendChild(el);
+          listEl = null;
+          return;
+        }
+        const bullet = line.match(/^[-*]\s+(.+)/);
+        if (bullet) {
+          if (!listEl) {
+            listEl = document.createElement("ul");
+            container.appendChild(listEl);
+          }
+          const li = document.createElement("li");
+          li.innerHTML = applyInlineMarkdown(bullet[1]);
+          listEl.appendChild(li);
+          return;
+        }
+        const quote = line.match(/^>\s+(.+)/);
+        if (quote) {
+          const bq = document.createElement("blockquote");
+          bq.innerHTML = applyInlineMarkdown(quote[1]);
+          container.appendChild(bq);
+          listEl = null;
+          return;
+        }
+        const p = document.createElement("p");
+        p.innerHTML = applyInlineMarkdown(line);
+        container.appendChild(p);
+        listEl = null;
+      });
+    }
+
     function renderAssistantMessage(div, text) {
       div.textContent = "";
       const regex = /```([\w-]*)\n([\s\S]*?)```/g;
@@ -533,7 +589,7 @@
       let match;
       while ((match = regex.exec(text)) !== null) {
         const plain = text.slice(lastIndex, match.index);
-        if (plain) div.appendChild(document.createTextNode(plain));
+        if (plain.trim()) renderMarkdownBlock(div, plain);
 
         const lang = match[1] || "code";
         const code = match[2] || "";
@@ -559,7 +615,7 @@
         lastIndex = regex.lastIndex;
       }
       const tail = text.slice(lastIndex);
-      if (tail) div.appendChild(document.createTextNode(tail));
+      if (tail.trim()) renderMarkdownBlock(div, tail);
     }
 
     function appendMessage(role, text, type = "", save = true) {
