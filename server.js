@@ -306,11 +306,14 @@ app.post("/chat", async (req, res) => {
     res.setHeader("Connection", "keep-alive");
 
     let buffer = "";
+    let rawAll = "";
     let fullText = "";
     let usedOutputTokens = 0;
 
     for await (const chunk of response.body) {
-      buffer += chunk.toString("utf8");
+      const chunkText = chunk.toString("utf8");
+      rawAll += chunkText;
+      buffer += chunkText;
       const events = buffer.split("\n\n");
       buffer = events.pop() || "";
 
@@ -331,6 +334,30 @@ app.post("/chat", async (req, res) => {
           res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
         }
         usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+      }
+    }
+
+    if (!fullText.trim()) {
+      // Fallback for environments that return full JSON instead of SSE framing.
+      const fallbackPayload = rawAll.trim();
+      if (fallbackPayload) {
+        try {
+          const parsed = JSON.parse(fallbackPayload);
+          if (Array.isArray(parsed)) {
+            fullText = parsed.map(extractModelText).join("");
+            for (const item of parsed) {
+              usedOutputTokens = item?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+            }
+          } else {
+            fullText = extractModelText(parsed);
+            usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+          }
+          if (fullText) {
+            res.write(`data: ${JSON.stringify({ delta: fullText, usedOutputTokens })}\n\n`);
+          }
+        } catch (error) {
+          // Keep empty fullText and return fallback message below.
+        }
       }
     }
 
