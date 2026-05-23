@@ -277,7 +277,7 @@ app.post("/chat", async (req, res) => {
       generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
     };
 
-    const response = await fetch(buildGeminiUrl(false), {
+    const response = await fetch(buildGeminiUrl(true), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -301,19 +301,49 @@ app.post("/chat", async (req, res) => {
       }
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
-    const json = await response.json();
-    const finalText = extractModelText(json).trim();
-    const usedOutputTokens = json?.usageMetadata?.candidatesTokenCount || 0;
-    if (!finalText) {
-      return res.status(502).json({ reply: "I couldn't generate a response.", usedOutputTokens });
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    let buffer = "";
+    let fullText = "";
+    let usedOutputTokens = 0;
+
+    for await (const chunk of response.body) {
+      buffer += chunk.toString("utf8");
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
+
+      for (const event of events) {
+        const dataLine = event.split("\n").find(line => line.startsWith("data: "));
+        if (!dataLine) continue;
+        const payload = dataLine.slice(6).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let parsed = null;
+        try {
+          parsed = JSON.parse(payload);
+        } catch (error) {
+          continue;
+        }
+        const delta = extractModelText(parsed);
+        if (delta) {
+          fullText += delta;
+          res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
+        }
+        usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+      }
+    }
+
+    if (!fullText.trim()) {
+      return res.end(`data: ${JSON.stringify({ delta: "I couldn't generate a response.", usedOutputTokens })}\n\ndata: [DONE]\n\n`);
     }
 
     memory.push({ role: "user", text: userMessage || "[User sent an image]" });
-    memory.push({ role: "model", text: finalText.trim() });
+    memory.push({ role: "model", text: fullText.trim() });
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
     globalUsedOutputTokens += usedOutputTokens;
-
-    return res.json({ reply: finalText, usedOutputTokens });
+    res.write(`data: ${JSON.stringify({ usedOutputTokens })}\n\n`);
+    return res.end("data: [DONE]\n\n");
   } catch (err) {
     console.error(err);
     res.status(500).json({ reply: "Hmm… network or API error. Try again?" });
