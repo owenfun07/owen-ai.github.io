@@ -274,7 +274,7 @@ app.post("/chat", async (req, res) => {
     const payload = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
       contents,
-      generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
+      generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
     };
 
     const response = await fetch(buildGeminiUrl(true), {
@@ -472,12 +472,17 @@ app.get("/debug-gemini", async (req, res) => {
       // Keep null json; this route is specifically for debugging malformed upstream responses.
     }
 
+    const extractedText = json ? extractModelText(json) : "";
+    const issue = json
+      ? (extractedText ? null : extractModelIssue(json))
+      : "Non-JSON response from Gemini";
+
     return res.status(response.ok ? 200 : 502).json({
       ok: response.ok,
       status: response.status,
       model: GEMINI_MODEL,
-      extractedText: json ? extractModelText(json) : "",
-      issue: json ? extractModelIssue(json) : "Non-JSON response from Gemini",
+      extractedText,
+      issue,
       summary: json ? summarizeGeminiResponse(json) : null,
       rawPreview: bodyText.slice(0, 2000)
     });
