@@ -302,8 +302,9 @@ app.post("/chat", async (req, res) => {
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
 
     let buffer = "";
     let rawAll = "";
