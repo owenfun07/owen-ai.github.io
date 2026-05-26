@@ -305,6 +305,14 @@ app.post("/chat", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
+    if (typeof res.flushHeaders === "function") res.flushHeaders();
+    res.write(": stream-open\n\n");
+    const keepAlive = setInterval(() => {
+      res.write(": ping\n\n");
+    }, 15000);
+    req.on("close", () => {
+      clearInterval(keepAlive);
+    });
 
     let buffer = "";
     let rawAll = "";
@@ -363,6 +371,7 @@ app.post("/chat", async (req, res) => {
     }
 
     if (!fullText.trim()) {
+      clearInterval(keepAlive);
       return res.end(`data: ${JSON.stringify({ delta: "I couldn't generate a response.", usedOutputTokens })}\n\ndata: [DONE]\n\n`);
     }
 
@@ -371,6 +380,7 @@ app.post("/chat", async (req, res) => {
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
     globalUsedOutputTokens += usedOutputTokens;
     res.write(`data: ${JSON.stringify({ usedOutputTokens })}\n\n`);
+    clearInterval(keepAlive);
     return res.end("data: [DONE]\n\n");
   } catch (err) {
     console.error(err);
