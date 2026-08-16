@@ -301,27 +301,105 @@ app.post("/chat", async (req, res) => {
       }
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
-
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
-
     if (typeof res.flushHeaders === "function") res.flushHeaders();
-
-    response.body.pipe(res);
-
-    response.body.on('error', (err) => {
-        console.error("Error piping stream:", err);
-        res.end();
+    res.write(": stream-open\n\n");
+    const keepAlive = setInterval(() => {
+      res.write(": ping\n\n");
+    }, 15000);
+    req.on("close", () => {
+      clearInterval(keepAlive);
     });
 
-    memory.push({ role: "user", text: userMessage || "[User sent an image]" });
-    memory = memory.slice(-MAX_MEMORY_MESSAGES);
+    let buffer = "";
+    let rawAll = "";
+    let fullText = "";
+    let usedOutputTokens = 0;
 
+    function processSseEvent(event) {
+      const payload = event
+        .split(/\r?\n/)
+        .filter(line => line.startsWith("data:"))
+        .map(line => line.replace(/^data:\s?/, ""))
+        .join("\n")
+        .trim();
+
+      if (!payload || payload === "[DONE]") return;
+
+      let parsed = null;
+      try {
+        parsed = JSON.parse(payload);
+      } catch (error) {
+        console.warn("Skipping malformed Gemini stream payload:", payload.slice(0, 160));
+        return;
+      }
+
+      const delta = extractModelText(parsed);
+      usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+      if (!delta) return;
+
+      fullText += delta;
+      res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
+    }
+
+    for await (const chunk of response.body) {
+      const chunkText = chunk.toString("utf8");
+      rawAll += chunkText;
+      buffer += chunkText;
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() || "";
+      events.forEach(processSseEvent);
+    }
+
+    if (buffer.trim()) {
+      processSseEvent(buffer);
+    }
+
+    if (!fullText.trim()) {
+      // Fallback for environments that return full JSON instead of SSE framing.
+      const fallbackPayload = rawAll.trim();
+      if (fallbackPayload) {
+        try {
+          const parsed = JSON.parse(fallbackPayload);
+          if (Array.isArray(parsed)) {
+            fullText = parsed.map(extractModelText).join("");
+            for (const item of parsed) {
+              usedOutputTokens = item?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+            }
+          } else {
+            fullText = extractModelText(parsed);
+            usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+          }
+          if (fullText) {
+            res.write(`data: ${JSON.stringify({ delta: fullText, usedOutputTokens })}\n\n`);
+          }
+        } catch (error) {
+          // Keep empty fullText and return fallback message below.
+        }
+      }
+    }
+
+    if (!fullText.trim()) {
+      clearInterval(keepAlive);
+      return res.end(`data: ${JSON.stringify({ delta: "I couldn't generate a response.", usedOutputTokens })}\n\ndata: [DONE]\n\n`);
+    }
+
+    memory.push({ role: "user", text: userMessage || "[User sent an image]" });
+    memory.push({ role: "model", text: fullText.trim() });
+    memory = memory.slice(-MAX_MEMORY_MESSAGES);
+    globalUsedOutputTokens += usedOutputTokens;
+    res.write(`data: ${JSON.stringify({ usedOutputTokens })}\n\n`);
+    clearInterval(keepAlive);
+    return res.end("data: [DONE]\n\n");
   } catch (err) {
     console.error(err);
-    res.status(500).json({ reply: "Hmm… network or API error. Try again?" });
+    if (res.headersSent) {
+      return res.end(`data: ${JSON.stringify({ delta: "Hmm… network or API error. Try again?" })}\n\ndata: [DONE]\n\n`);
+    }
+    return res.status(500).json({ reply: "Hmm… network or API error. Try again?" });
   }
 });
 
@@ -335,6 +413,7 @@ app.get("/usage", (req, res) => {
   });
 });
 
+// Temporary test route to check Gemini API key
 app.get("/test-gemini", async (req, res) => {
   try {
     if (!process.env.GEMINI_API_KEY) {

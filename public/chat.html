@@ -747,7 +747,6 @@
           appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.", "error");
           return;
         }
-
         const botDiv = appendMessage("Owen.Ai", "", "", false);
         let fullText = "";
         let sseBuffer = "";
@@ -757,45 +756,22 @@
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-
           sseBuffer += decoder.decode(value, { stream: true });
-
-          let splitIndex;
-          while ((splitIndex = sseBuffer.indexOf("\n\n")) >= 0) {
-            const eventData = sseBuffer.slice(0, splitIndex);
-            sseBuffer = sseBuffer.slice(splitIndex + 2);
-
-            const lines = eventData.split("\n");
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const payload = line.slice(6).trim();
-                if (!payload || payload === "[DONE]") continue;
-
-                try {
-                  const parsed = JSON.parse(payload);
-                  const parts = parsed?.candidates?.[0]?.content?.parts;
-                  if (Array.isArray(parts)) {
-                    const delta = parts.map(part => (typeof part?.text === "string" ? part.text : "")).join("");
-                    if (delta) {
-                      fullText += delta;
-                      renderAssistantMessage(botDiv, fullText);
-                      chatbox.scrollTop = chatbox.scrollHeight;
-                    }
-                  }
-                } catch (e) {
-                  // Silently ignore incomplete chunk parses until the full object arrives
-                }
-              }
+          const lines = sseBuffer.split("\n");
+          sseBuffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const payload = line.slice(6).trim();
+            if (!payload || payload === "[DONE]") continue;
+            const chunk = JSON.parse(payload);
+            if (chunk.delta) {
+              fullText += chunk.delta;
+              renderAssistantMessage(botDiv, fullText);
+              chatbox.scrollTop = chatbox.scrollHeight;
             }
           }
         }
-
-        if (fullText) {
-          saveMessage("Owen.Ai", fullText, "");
-        } else {
-          renderAssistantMessage(botDiv, "I couldn't generate a response.");
-        }
-
+        saveMessage("Owen.Ai", fullText || "No response.", "");
         await refreshGlobalTokensLeft();
       } catch (error) {
         console.error("Chat Error:", error);
@@ -830,26 +806,38 @@
 
     document.addEventListener("paste", async event => {
       if (!isLoggedIn()) return;
-      const items = event.clipboardData?.items || [];
+	      const items = event.clipboardData?.items || [];
       for (const item of items) {
         if (item.type && item.type.startsWith("image/")) {
           const file = item.getAsFile();
           if (!file) return;
           const dataUrl = await readFileAsDataUrl(file);
           const base64 = String(dataUrl).split(",")[1] || "";
-          pendingImage = {
+	          pendingImage = {
             fileName: file.name || "pasted-image",
             mimeType: file.type || "image/png",
             data: base64,
             preview: dataUrl
-          };
-          pendingFile = { name: file.name || "pasted-image.png" };
-          renderAttachmentChips();
+	          };
+            pendingFile = { name: file.name || "pasted-image.png" };
+	          renderAttachmentChips();
           event.preventDefault();
           return;
         }
       }
-    });
+	    });
+      chatSelect.addEventListener("change", () => {
+        currentChatId = chatSelect.value;
+        renderHistory();
+      });
+      newChatBtn.addEventListener("click", createChat);
+      deleteChatBtn.addEventListener("click", deleteCurrentChat);
+      sidebarToggle.addEventListener("click", () => {
+        historySidebar.classList.toggle("show");
+      });
+      closeSidebarBtn.addEventListener("click", () => {
+        historySidebar.classList.remove("show");
+      });
 
     chatSelect.addEventListener("change", () => {
       currentChatId = chatSelect.value;
