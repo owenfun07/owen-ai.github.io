@@ -323,26 +323,37 @@ app.post("/chat", async (req, res) => {
       const chunkText = chunk.toString("utf8");
       rawAll += chunkText;
       buffer += chunkText;
-      const events = buffer.split("\n\n");
-      buffer = events.pop() || "";
+      
+      // Keep splitting until there are no more complete events in the buffer
+      let splitIndex;
+      while ((splitIndex = buffer.indexOf("\n\n")) >= 0) {
+        // Extract one complete event
+        const eventData = buffer.slice(0, splitIndex);
+        // Remove the processed event and the newline delimiters from the buffer
+        buffer = buffer.slice(splitIndex + 2);
 
-      for (const event of events) {
-        const dataLine = event.split("\n").find(line => line.startsWith("data: "));
-        if (!dataLine) continue;
-        const payload = dataLine.slice(6).trim();
-        if (!payload || payload === "[DONE]") continue;
-        let parsed = null;
-        try {
-          parsed = JSON.parse(payload);
-        } catch (error) {
-          continue;
+        // Process the extracted event
+        const lines = eventData.split("\n");
+        for (const line of lines) {
+            if (line.startsWith("data: ")) {
+                const payload = line.slice(6).trim();
+                if (!payload || payload === "[DONE]") continue;
+                
+                let parsed = null;
+                try {
+                  parsed = JSON.parse(payload);
+                } catch (error) {
+                  // Skip invalid JSON lines
+                  continue;
+                }
+                const delta = extractModelText(parsed);
+                if (delta) {
+                  fullText += delta;
+                  res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
+                }
+                usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+            }
         }
-        const delta = extractModelText(parsed);
-        if (delta) {
-          fullText += delta;
-          res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
-        }
-        usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
       }
     }
 
