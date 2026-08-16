@@ -302,7 +302,6 @@ app.post("/chat", async (req, res) => {
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
 
-    // Instead of parsing here, we pipe the raw SSE stream directly to the client.
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
@@ -317,16 +316,7 @@ app.post("/chat", async (req, res) => {
         res.end();
     });
 
-    // Update memory (we can't easily extract the full text here anymore since we are piping, 
-    // so we rely on the client or clear memory if needed. For now, we'll append a placeholder
-    // or you'll need to reconstruct it on the server if memory is essential).
     memory.push({ role: "user", text: userMessage || "[User sent an image]" });
-    // Note: We are not pushing the model's response to memory here because we are streaming it directly.
-    // If you need memory to persist, you should send the complete message back from the client,
-    // or accumulate it here while piping (which re-introduces complexity). 
-    // For a simple implementation, dropping the model memory is safest.
-    
-    // We will keep only user messages in memory for context if we don't parse the stream.
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
 
   } catch (err) {
