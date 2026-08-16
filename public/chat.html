@@ -78,6 +78,7 @@
       justify-content: space-between;
       gap: 10px;
     }
+    .chat-controls { display: flex; gap: 8px; }
 
     .brand {
       display: flex;
@@ -773,6 +774,7 @@
         saveMessage("Owen.Ai", fullText || "No response.", "");
         await refreshGlobalTokensLeft();
       } catch (error) {
+        console.error("Chat Error:", error);
         appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
       } finally {
         pendingImage = null;
@@ -837,6 +839,18 @@
         historySidebar.classList.remove("show");
       });
 
+    chatSelect.addEventListener("change", () => {
+      currentChatId = chatSelect.value;
+      renderHistory();
+    });
+    newChatBtn.addEventListener("click", createChat);
+    deleteChatBtn.addEventListener("click", deleteCurrentChat);
+    sidebarToggle.addEventListener("click", () => {
+      historySidebar.classList.toggle("show");
+    });
+    closeSidebarBtn.addEventListener("click", () => {
+      historySidebar.classList.remove("show");
+    });
   </script>
 </body>
 </html>
