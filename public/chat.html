@@ -270,26 +270,59 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 10px;
       padding: 7px 10px;
       background: #1a214d;
       font-size: 12px;
     }
 
-    .copy-code {
+    .code-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .code-actions button {
       border-radius: 8px;
       padding: 6px 8px;
       font-size: 12px;
       min-width: 74px;
     }
 
+    .code-actions button.active {
+      background: rgba(255,255,255,0.18);
+    }
+
     .code-block pre {
       margin: 0;
       padding: 10px 12px;
-      overflow-x: auto;
+      max-height: 360px;
+      overflow: auto;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 13px;
       line-height: 1.45;
       color: #e9eeff;
+    }
+
+    .code-preview {
+      width: 100%;
+      height: min(420px, 55vh);
+      max-height: 420px;
+      border: 0;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      background: white;
+      display: none;
+    }
+
+    .code-preview.show,
+    .code-source.show {
+      display: block;
+    }
+
+    .code-source.hide {
+      display: none;
     }
 
     button:hover {
@@ -359,6 +392,7 @@
       />
       <button id="sendBtn" onclick="sendMessage()">Send</button>
       <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
+    </div>
     </div>
     </div>
     </div>
@@ -552,6 +586,34 @@
       });
     }
 
+
+    function downloadCodeFile(code, lang) {
+      const extensions = {
+        html: "html",
+        htm: "html",
+        css: "css",
+        js: "js",
+        javascript: "js",
+        json: "json",
+        py: "py",
+        python: "py",
+        ts: "ts",
+        typescript: "ts",
+        jsx: "jsx",
+        tsx: "tsx"
+      };
+      const extension = extensions[lang] || "txt";
+      const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `owen-ai-code.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
     function renderAssistantMessage(div, text) {
       div.textContent = "";
       const regex = /```([\w-]*)\n([\s\S]*?)```/g;
@@ -562,6 +624,7 @@
         if (plain.trim()) renderMarkdownBlock(div, plain);
 
         const lang = match[1] || "code";
+        const normalizedLang = lang.toLowerCase();
         const code = match[2] || "";
         const wrap = document.createElement("div");
         wrap.className = "code-block";
@@ -569,18 +632,51 @@
         header.className = "code-header";
         const label = document.createElement("span");
         label.textContent = lang;
+        const actions = document.createElement("div");
+        actions.className = "code-actions";
         const copyBtn = document.createElement("button");
-        copyBtn.className = "copy-code";
         copyBtn.textContent = "Copy code";
         copyBtn.onclick = async () => {
           await navigator.clipboard.writeText(code);
           copyBtn.textContent = "Copied!";
           setTimeout(() => { copyBtn.textContent = "Copy code"; }, 1200);
         };
-        header.append(label, copyBtn);
+        const downloadBtn = document.createElement("button");
+        downloadBtn.textContent = "Download";
+        downloadBtn.onclick = () => downloadCodeFile(code, normalizedLang);
+        actions.append(copyBtn, downloadBtn);
+        header.append(label, actions);
         const pre = document.createElement("pre");
+        pre.className = "code-source show";
         pre.textContent = code;
         wrap.append(header, pre);
+
+        if (normalizedLang === "html" || normalizedLang === "htm") {
+          const previewBtn = document.createElement("button");
+          previewBtn.textContent = "Preview";
+          const codeBtn = document.createElement("button");
+          codeBtn.textContent = "Code";
+          codeBtn.className = "active";
+          actions.prepend(previewBtn, codeBtn);
+          const preview = document.createElement("iframe");
+          preview.className = "code-preview";
+          preview.title = "HTML preview";
+          preview.srcdoc = code;
+          wrap.appendChild(preview);
+          previewBtn.onclick = () => {
+            preview.classList.add("show");
+            pre.classList.add("hide");
+            codeBtn.classList.remove("active");
+            previewBtn.classList.add("active");
+          };
+          codeBtn.onclick = () => {
+            preview.classList.remove("show");
+            pre.classList.remove("hide");
+            previewBtn.classList.remove("active");
+            codeBtn.classList.add("active");
+          };
+        }
+
         div.appendChild(wrap);
         lastIndex = regex.lastIndex;
       }
