@@ -168,6 +168,26 @@
     .layout.sidebar-collapsed .sidebar-user {
       display: none;
     }
+    .layout { width: 100vw; height: 100vh; position: relative; display: grid; place-items: stretch; }
+    .sidebar {
+      width: min(240px, 82vw);
+      background: rgba(10, 14, 36, 0.92);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      padding: 12px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      transform: translateX(-12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: 180ms ease;
+      z-index: 20;
+    }
+    .sidebar.show { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .sidebar-toggle { position: absolute; left: 6px; top: 6px; z-index: 4; }
+    .sidebar-close { float: right; min-width: 34px; }
 
     .app {
       width: 100%;
@@ -188,6 +208,7 @@
       justify-content: space-between;
       gap: 10px;
     }
+    .chat-controls { display: flex; gap: 8px; }
 
     .brand {
       display: flex;
@@ -518,6 +539,10 @@
       <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
     </div>
     </div>
+    </div>
+    </div>
+    </div>
+    <div class="tokens" id="tokensLeft">Global tokens left: --</div>
   </main>
   </div>
 
@@ -1068,6 +1093,18 @@
         chatLayout.classList.add("sidebar-collapsed");
       });
 
+    chatSelect.addEventListener("change", () => {
+      currentChatId = chatSelect.value;
+      renderHistory();
+    });
+    newChatBtn.addEventListener("click", createChat);
+    deleteChatBtn.addEventListener("click", deleteCurrentChat);
+    sidebarToggle.addEventListener("click", () => {
+      historySidebar.classList.toggle("show");
+    });
+    closeSidebarBtn.addEventListener("click", () => {
+      historySidebar.classList.remove("show");
+    });
   </script>
 </body>
 </html>
