@@ -41,7 +41,7 @@
     }
 
     .layout.sidebar-collapsed {
-      grid-template-columns: 72px 1fr;
+      grid-template-columns: 0 1fr;
     }
 
     .layout.guest {
@@ -119,6 +119,70 @@
       gap: 4px;
       overflow-y: auto;
       min-height: 0;
+    }
+
+    .chat-row {
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      position: relative;
+      padding-right: 38px;
+    }
+
+    .chat-row.active,
+    .chat-row:hover {
+      background: rgba(255,255,255,0.09);
+    }
+
+    .chat-title-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .delete-chat-inline {
+      position: absolute;
+      right: 4px;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      padding: 0;
+      background: transparent;
+      opacity: 0.7;
+    }
+
+    .sidebar-user {
+      margin-top: auto;
+      color: var(--text);
+      min-height: 38px;
+    }
+
+    .layout.sidebar-collapsed .sidebar {
+      padding: 0;
+      border-right: 0;
+      visibility: hidden;
+    }
+
+    .sidebar-open {
+      position: fixed;
+      left: 14px;
+      top: 14px;
+      z-index: 40;
+      min-width: 44px;
+      height: 44px;
+      padding: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    }
+
+    .layout.sidebar-collapsed .sidebar-open {
+      display: inline-flex;
+    }
+
+    .layout.guest .sidebar-open {
+      display: none;
     }
 
     .chat-row {
@@ -492,22 +556,22 @@
 </head>
   <body>
   <div class="layout" id="chatLayout">
+  <button id="sidebarOpenBtn" class="sidebar-open" type="button" title="Open chats">☰</button>
   <aside id="historySidebar" class="sidebar">
     <div class="sidebar-top">
       <div class="sidebar-logo"><span class="dot"></span><span class="sidebar-text">Owen AI</span></div>
-      <button id="sidebarToggle" class="sidebar-close" type="button" title="Collapse sidebar">☰</button>
+      <button id="sidebarToggle" class="sidebar-close" type="button" title="Close sidebar">×</button>
     </div>
     <div class="sidebar-nav">
       <button id="newChatBtn" class="sidebar-action" type="button">✎ <span class="sidebar-text">New chat</span></button>
       <label class="sidebar-action">⌕ <input id="chatSearch" class="sidebar-search" placeholder="Search chats" /></label>
-      <button class="sidebar-action" type="button">◌ <span class="sidebar-text">Library</span></button>
     </div>
     <select id="chatSelect" hidden></select>
     <div class="sidebar-label">Recents</div>
     <div id="recentChatList" class="recent-list"></div>
     <button id="deleteChatBtn" type="button" hidden>Delete Chat</button>
     <button id="closeSidebarBtn" type="button" hidden>Close</button>
-    <div class="sidebar-user"><span>●</span><span class="sidebar-text" id="sidebarUserName">Guest</span><span>⚙</span></div>
+    <div class="sidebar-user"><span>●</span><span class="sidebar-text" id="sidebarUserName">Guest</span></div>
   </aside>
   <main class="app">
     <header class="header">
@@ -540,8 +604,6 @@
     </div>
     </div>
     </div>
-    </div>
-    </div>
     <div class="tokens" id="tokensLeft">Global tokens left: --</div>
   </main>
   </div>
@@ -554,6 +616,7 @@
     const loginBtn = document.getElementById("loginBtn");
     const chatLayout = document.getElementById("chatLayout");
     const sidebarToggle = document.getElementById("sidebarToggle");
+    const sidebarOpenBtn = document.getElementById("sidebarOpenBtn");
     const historySidebar = document.getElementById("historySidebar");
     const chatSelect = document.getElementById("chatSelect");
     const chatSearch = document.getElementById("chatSearch");
@@ -892,6 +955,7 @@
       const spinner = document.createElement("span");
       spinner.className = "ai-spinner";
       const label = document.createElement("span");
+      label.className = "ai-loader-label";
       label.textContent = "Owen is drafting…";
       loader.append(spinner, label);
       div.appendChild(loader);
@@ -1016,6 +1080,10 @@
             const payload = line.slice(6).trim();
             if (!payload || payload === "[DONE]") continue;
             const chunk = JSON.parse(payload);
+            if (chunk.grounded) {
+              const loaderLabel = botDiv.querySelector(".ai-loader-label");
+              if (loaderLabel) loaderLabel.textContent = "Fact checking response…";
+            }
             if (chunk.delta) {
               fullText += chunk.delta;
               renderAssistantMessage(botDiv, fullText);
@@ -1087,7 +1155,10 @@
       newChatBtn.addEventListener("click", createChat);
       deleteChatBtn.addEventListener("click", deleteCurrentChat);
       sidebarToggle.addEventListener("click", () => {
-        chatLayout.classList.toggle("sidebar-collapsed");
+        chatLayout.classList.add("sidebar-collapsed");
+      });
+      sidebarOpenBtn.addEventListener("click", () => {
+        chatLayout.classList.remove("sidebar-collapsed");
       });
       closeSidebarBtn.addEventListener("click", () => {
         chatLayout.classList.add("sidebar-collapsed");

@@ -274,7 +274,8 @@ app.post("/chat", async (req, res) => {
     const payload = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
       contents,
-      generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
+      tools: [{ googleSearch: {} }],
+      generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
     };
 
     const response = await fetch(buildGeminiUrl(true), {
@@ -318,6 +319,7 @@ app.post("/chat", async (req, res) => {
     let rawAll = "";
     let fullText = "";
     let usedOutputTokens = 0;
+    let sentGroundingNotice = false;
 
     function processSseEvent(event) {
       const payload = event
@@ -338,11 +340,21 @@ app.post("/chat", async (req, res) => {
       }
 
       const delta = extractModelText(parsed);
+      const groundingMetadata = parsed?.candidates?.[0]?.groundingMetadata || null;
+      const usedGoogleSearch = Boolean(
+        groundingMetadata?.webSearchQueries?.length
+        || groundingMetadata?.groundingChunks?.length
+        || groundingMetadata?.searchEntryPoint
+      );
       usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+      if (usedGoogleSearch && !sentGroundingNotice) {
+        sentGroundingNotice = true;
+        res.write(`data: ${JSON.stringify({ grounded: true })}\n\n`);
+      }
       if (!delta) return;
 
       fullText += delta;
-      res.write(`data: ${JSON.stringify({ delta, usedOutputTokens })}\n\n`);
+      res.write(`data: ${JSON.stringify({ delta, usedOutputTokens, grounded: usedGoogleSearch })}\n\n`);
     }
 
     for await (const chunk of response.body) {
@@ -374,7 +386,8 @@ app.post("/chat", async (req, res) => {
             usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
           }
           if (fullText) {
-            res.write(`data: ${JSON.stringify({ delta: fullText, usedOutputTokens })}\n\n`);
+            const grounded = Boolean(sentGroundingNotice);
+            res.write(`data: ${JSON.stringify({ delta: fullText, usedOutputTokens, grounded })}\n\n`);
           }
         } catch (error) {
           // Keep empty fullText and return fallback message below.
