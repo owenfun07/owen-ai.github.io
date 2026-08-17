@@ -7,11 +7,16 @@ dotenv.config(); // load GEMINI_API_KEY
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static("public"));
+app.get("/chat", (req, res) => res.sendFile(`${__dirname}/public/chat.html`));
+app.get("/login", (req, res) => res.sendFile(`${__dirname}/public/login.html`));
 
 const GEMINI_MODEL_URL_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "";
 const SYSTEM_INSTRUCTION = [
   "You are Owen.Ai.",
   "Personality: friendly, playful, funny, and always genuinely helpful.",
@@ -19,12 +24,18 @@ const SYSTEM_INSTRUCTION = [
   "Behavior: you enjoy helping people in whatever way you can.",
   "Response quality: keep responses clear, complete, and avoid cutting thoughts off mid-sentence."
 ].join(" ");
+const DAILY_TOKEN_BUDGET = Number(process.env.DAILY_TOKEN_BUDGET || 250000);
 
 let memory = [];
 const MAX_MEMORY_MESSAGES = 10;
+let globalUsedOutputTokens = 0;
 
-function buildGeminiUrl() {
-  return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY || "")}`;
+function buildGeminiUrl(stream = false) {
+  const key = encodeURIComponent(process.env.GEMINI_API_KEY || "");
+  if (stream) {
+    return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:streamGenerateContent?alt=sse&key=${key}`;
+  }
+  return `${GEMINI_MODEL_URL_BASE}/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${key}`;
 }
 
 function extractModelText(json) {
@@ -32,8 +43,7 @@ function extractModelText(json) {
   if (!Array.isArray(parts)) return "";
   return parts
     .map(part => (typeof part?.text === "string" ? part.text : ""))
-    .join("")
-    .trim();
+    .join("");
 }
 
 function extractModelIssue(json) {
@@ -99,6 +109,87 @@ async function callAuthService(action, username, password) {
 
   return { ok: Boolean(json?.ok), message: json?.message || "", user: json?.user || null };
 }
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+app.get("/auth/google", (req, res) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_REDIRECT_URI) {
+    return res.status(500).send("Google OAuth is not configured.");
+  }
+
+  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
+  authUrl.searchParams.set("redirect_uri", GOOGLE_REDIRECT_URI);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", "openid email profile");
+  authUrl.searchParams.set("access_type", "online");
+  authUrl.searchParams.set("prompt", "select_account");
+  return res.redirect(authUrl.toString());
+});
+
+app.get("/auth/google/callback", async (req, res) => {
+  try {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
+      return res.status(500).send("Google OAuth is not configured.");
+    }
+    const code = req.query?.code;
+    if (!code) return res.status(400).send("Missing Google authorization code.");
+
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: GOOGLE_REDIRECT_URI,
+        grant_type: "authorization_code"
+      }).toString()
+    });
+    const tokenJson = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok || !tokenJson.access_token) {
+      return res.status(502).send("Google token exchange failed.");
+    }
+
+    const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: { Authorization: `Bearer ${tokenJson.access_token}` }
+    });
+    const profile = await profileResponse.json().catch(() => ({}));
+    if (!profileResponse.ok || !profile.sub) {
+      return res.status(502).send("Failed to read Google profile.");
+    }
+
+    const googleUsername = `google_${profile.sub}`;
+    const safeUsername = escapeHtml(googleUsername);
+    const safeName = escapeHtml(profile.name || profile.given_name || googleUsername);
+    return res.send(`<!doctype html><html><body><script>
+      const payload = { type: "google-auth-success", username: "${safeUsername}", name: "${safeName}" };
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(payload, window.location.origin);
+          window.close();
+        } else {
+          localStorage.setItem("owen_user", payload.username);
+          localStorage.setItem("owen_user_name", payload.name);
+          window.location.href = "/chat";
+        }
+      } catch (e) {
+        localStorage.setItem("owen_user", payload.username);
+        localStorage.setItem("owen_user_name", payload.name);
+        window.location.href = "/chat";
+      }
+    </script></body></html>`);
+  } catch (error) {
+    return res.status(500).send("Google login failed.");
+  }
+});
 
 app.post("/auth/login", async (req, res) => {
   try {
@@ -183,10 +274,11 @@ app.post("/chat", async (req, res) => {
     const payload = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
       contents,
+      tools: [{ googleSearch: {} }],
       generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
     };
 
-    const response = await fetch(buildGeminiUrl(), {
+    const response = await fetch(buildGeminiUrl(true), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -210,24 +302,128 @@ app.post("/chat", async (req, res) => {
       }
       return res.status(502).json({ reply: "AI provider error. Please try again shortly." });
     }
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    if (typeof res.flushHeaders === "function") res.flushHeaders();
+    res.write(": stream-open\n\n");
+    const keepAlive = setInterval(() => {
+      res.write(": ping\n\n");
+    }, 15000);
+    req.on("close", () => {
+      clearInterval(keepAlive);
+    });
 
-    const json = await response.json();
-    const aiText = extractModelText(json);
-    if (!aiText) {
-      const issue = extractModelIssue(json);
-      console.error("Gemini empty response:", issue, JSON.stringify(json).slice(0, 800));
-      return res.status(502).json({ reply: `I couldn't generate text. ${issue}` });
+    let buffer = "";
+    let rawAll = "";
+    let fullText = "";
+    let usedOutputTokens = 0;
+    let sentGroundingNotice = false;
+
+    function processSseEvent(event) {
+      const payload = event
+        .split(/\r?\n/)
+        .filter(line => line.startsWith("data:"))
+        .map(line => line.replace(/^data:\s?/, ""))
+        .join("\n")
+        .trim();
+
+      if (!payload || payload === "[DONE]") return;
+
+      let parsed = null;
+      try {
+        parsed = JSON.parse(payload);
+      } catch (error) {
+        console.warn("Skipping malformed Gemini stream payload:", payload.slice(0, 160));
+        return;
+      }
+
+      const delta = extractModelText(parsed);
+      const groundingMetadata = parsed?.candidates?.[0]?.groundingMetadata || null;
+      const usedGoogleSearch = Boolean(
+        groundingMetadata?.webSearchQueries?.length
+        || groundingMetadata?.groundingChunks?.length
+        || groundingMetadata?.searchEntryPoint
+      );
+      usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+      if (usedGoogleSearch && !sentGroundingNotice) {
+        sentGroundingNotice = true;
+        res.write(`data: ${JSON.stringify({ grounded: true })}\n\n`);
+      }
+      if (!delta) return;
+
+      fullText += delta;
+      res.write(`data: ${JSON.stringify({ delta, usedOutputTokens, grounded: usedGoogleSearch })}\n\n`);
+    }
+
+    for await (const chunk of response.body) {
+      const chunkText = chunk.toString("utf8");
+      rawAll += chunkText;
+      buffer += chunkText;
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() || "";
+      events.forEach(processSseEvent);
+    }
+
+    if (buffer.trim()) {
+      processSseEvent(buffer);
+    }
+
+    if (!fullText.trim()) {
+      // Fallback for environments that return full JSON instead of SSE framing.
+      const fallbackPayload = rawAll.trim();
+      if (fallbackPayload) {
+        try {
+          const parsed = JSON.parse(fallbackPayload);
+          if (Array.isArray(parsed)) {
+            fullText = parsed.map(extractModelText).join("");
+            for (const item of parsed) {
+              usedOutputTokens = item?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+            }
+          } else {
+            fullText = extractModelText(parsed);
+            usedOutputTokens = parsed?.usageMetadata?.candidatesTokenCount || usedOutputTokens;
+          }
+          if (fullText) {
+            const grounded = Boolean(sentGroundingNotice);
+            res.write(`data: ${JSON.stringify({ delta: fullText, usedOutputTokens, grounded })}\n\n`);
+          }
+        } catch (error) {
+          // Keep empty fullText and return fallback message below.
+        }
+      }
+    }
+
+    if (!fullText.trim()) {
+      clearInterval(keepAlive);
+      return res.end(`data: ${JSON.stringify({ delta: "I couldn't generate a response.", usedOutputTokens })}\n\ndata: [DONE]\n\n`);
     }
 
     memory.push({ role: "user", text: userMessage || "[User sent an image]" });
-    memory.push({ role: "model", text: aiText });
+    memory.push({ role: "model", text: fullText.trim() });
     memory = memory.slice(-MAX_MEMORY_MESSAGES);
-
-    res.json({ reply: aiText });
+    globalUsedOutputTokens += usedOutputTokens;
+    res.write(`data: ${JSON.stringify({ usedOutputTokens })}\n\n`);
+    clearInterval(keepAlive);
+    return res.end("data: [DONE]\n\n");
   } catch (err) {
     console.error(err);
-    res.status(500).json({ reply: "Hmm… network or API error. Try again?" });
+    if (res.headersSent) {
+      return res.end(`data: ${JSON.stringify({ delta: "Hmm… network or API error. Try again?" })}\n\ndata: [DONE]\n\n`);
+    }
+    return res.status(500).json({ reply: "Hmm… network or API error. Try again?" });
   }
+});
+
+app.get("/usage", (req, res) => {
+  const used = Math.max(0, globalUsedOutputTokens);
+  const remaining = Math.max(0, DAILY_TOKEN_BUDGET - used);
+  res.json({
+    dailyTokenBudget: DAILY_TOKEN_BUDGET,
+    usedOutputTokens: used,
+    remainingOutputTokens: remaining
+  });
 });
 
 // Temporary test route to check Gemini API key

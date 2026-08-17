@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Owen.Ai Chat</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <title>Owen AI Chat</title>
   <style>
     :root {
       --bg: #0f1226;
@@ -30,23 +31,202 @@
       background: radial-gradient(1200px 700px at 10% -10%, #2f2a7f 0%, transparent 60%),
                   radial-gradient(1000px 700px at 100% 0%, #0d6e8f 0%, transparent 55%),
                   var(--bg);
+    }
+    .layout {
+      width: 100vw;
+      height: 100vh;
       display: grid;
-      place-items: center;
-      padding: 20px;
+      grid-template-columns: 280px minmax(0, 1fr);
+      transition: grid-template-columns 180ms ease;
+    }
+
+    .layout.sidebar-collapsed {
+      grid-template-columns: 0 minmax(0, 1fr);
+    }
+
+    .layout.guest {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      grid-column: 1;
+      min-width: 0;
+      background: rgba(16, 17, 20, 0.96);
+      border-right: 1px solid rgba(255,255,255,0.1);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+      z-index: 20;
+    }
+
+    .layout.guest .sidebar {
+      display: none;
+    }
+
+    .sidebar-top,
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .sidebar-nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sidebar-action,
+    .chat-row {
+      width: 100%;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      min-height: 36px;
+      padding: 0 12px;
+      text-align: left;
+    }
+
+    .sidebar-search {
+      width: 100%;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      outline: none;
+      font-size: 14px;
+    }
+
+    .sidebar-label {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 12px 4px 4px;
+    }
+
+    .recent-list {
+      display: grid;
+      gap: 4px;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .chat-row {
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      position: relative;
+      padding-right: 38px;
+    }
+
+    .chat-row.active,
+    .chat-row:hover {
+      background: rgba(255,255,255,0.09);
+    }
+
+    .chat-title-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .delete-chat-inline {
+      position: absolute;
+      right: 4px;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      padding: 0;
+      background: transparent;
+      opacity: 0.7;
+    }
+
+    .sidebar-user {
+      margin-top: auto;
+      color: var(--text);
+      min-height: 38px;
+    }
+
+    .layout.sidebar-collapsed .sidebar {
+      padding: 0;
+      border-right: 0;
+      visibility: hidden;
+    }
+
+    .sidebar-open {
+      position: fixed;
+      left: 14px;
+      top: 14px;
+      z-index: 40;
+      min-width: 44px;
+      height: 44px;
+      padding: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    }
+
+    .layout.sidebar-collapsed .sidebar-open {
+      display: inline-flex;
+    }
+
+    .layout.guest .sidebar-open {
+      display: none;
+    }
+
+
+
+    @media (max-width: 820px) {
+      .layout,
+      .layout.sidebar-collapsed,
+      .layout.guest {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: min(280px, 86vw);
+        height: 100vh;
+        box-shadow: 18px 0 40px rgba(0,0,0,0.35);
+      }
+
+      .layout.sidebar-collapsed .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .app {
+        grid-column: 1;
+      }
     }
 
     .app {
-      width: min(920px, 100%);
-      height: min(88vh, 760px);
+      grid-column: 2;
+      min-width: 0;
+      width: 100%;
+      height: 100vh;
       background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 20px;
       backdrop-filter: blur(8px);
-      box-shadow: 0 25px 60px rgba(0,0,0,0.35);
       display: grid;
       grid-template-rows: auto 1fr auto;
       overflow: hidden;
       animation: fadeInUp 450ms ease;
+    }
+
+    .layout.guest .app {
+      grid-column: 1;
     }
 
     .header {
@@ -121,9 +301,12 @@
     }
 
     .msg.bot {
-      align-self: flex-start;
-      background: var(--panel-soft);
-      border: 1px solid rgba(255,255,255,0.11);
+      align-self: stretch;
+      max-width: 100%;
+      padding: 2px 4px;
+      background: transparent;
+      border: none;
+      color: #d9e0ff;
     }
 
     .msg.error {
@@ -133,49 +316,56 @@
       color: #ffdcdc;
     }
 
-    .typing {
-      display: none;
+    .ai-loader {
+      display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 10px;
       color: var(--muted);
-      font-size: 13px;
-      margin: 2px 0 0 4px;
+      font-size: 14px;
     }
 
-    .typing.show {
-      display: flex;
-      animation: fadeInUp 200ms ease;
-    }
-
-    .typing .bubble {
-      width: 8px;
-      height: 8px;
+    .ai-spinner {
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
-      background: var(--accent-2);
-      opacity: 0.45;
-      animation: bounce 900ms infinite ease-in-out;
+      background: conic-gradient(from 180deg, var(--accent), var(--accent-2), transparent 70%);
+      animation: spin 900ms linear infinite;
+      position: relative;
     }
 
-    .typing .bubble:nth-child(2) {
-      animation-delay: 150ms;
-    }
-
-    .typing .bubble:nth-child(3) {
-      animation-delay: 300ms;
+    .ai-spinner::after {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: var(--bg);
     }
 
     .composer {
       border-top: 1px solid rgba(255,255,255,0.12);
       padding: 12px;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr auto auto;
       align-items: center;
       gap: 10px;
       background: rgba(6, 8, 22, 0.45);
     }
+    .composer-wrap { border-top: 1px solid rgba(255,255,255,0.12); background: rgba(6, 8, 22, 0.45); }
+    .attachments-preview { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 0; }
+    .attach-chip {
+      background: #1a214d;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 6px 10px;
+      font-size: 12px;
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     .icon-btn {
-      padding: 0 12px;
+      padding: 0 10px;
     }
 
     .icon-btn[hidden] {
@@ -184,14 +374,14 @@
 
     #userInput {
       width: 100%;
-      height: 44px;
+      height: 50px;
       background: #111533;
       color: var(--text);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
       padding: 0 14px;
       font-size: 15px;
-      line-height: 44px;
+      line-height: 50px;
       outline: none;
       transition: border-color 180ms ease, box-shadow 180ms ease;
     }
@@ -214,7 +404,7 @@
     }
 
     #sendBtn,
-    #imageBtn {
+    #fileBtn {
       height: 44px;
       line-height: 44px;
       padding-top: 0;
@@ -222,7 +412,81 @@
     }
 
     #sendBtn {
-      min-width: 88px;
+      min-width: 66px;
+      padding: 0 12px;
+      font-size: 13px;
+    }
+
+    #fileBtn {
+      min-width: 66px;
+      font-size: 13px;
+    }
+
+    .code-block {
+      margin: 10px 0;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0f132f;
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      background: #1a214d;
+      font-size: 12px;
+    }
+
+    .code-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .code-actions button {
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      min-width: 74px;
+    }
+
+    .code-actions button.active {
+      background: rgba(255,255,255,0.18);
+    }
+
+    .code-block pre {
+      margin: 0;
+      padding: 10px 12px;
+      max-height: 360px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #e9eeff;
+    }
+
+    .code-preview {
+      width: 100%;
+      height: min(420px, 55vh);
+      max-height: 420px;
+      border: 0;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      background: white;
+      display: none;
+    }
+
+    .code-preview.show,
+    .code-source.show {
+      display: block;
+    }
+
+    .code-source.hide {
+      display: none;
     }
 
     button:hover {
@@ -247,17 +511,32 @@
       }
     }
 
-    @keyframes bounce {
-      0%, 80%, 100% {
-        transform: translateY(0);
-      }
-      40% {
-        transform: translateY(-4px);
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
       }
     }
   </style>
 </head>
-<body>
+  <body>
+  <div class="layout" id="chatLayout">
+  <button id="sidebarOpenBtn" class="sidebar-open" type="button" title="Open chats">☰</button>
+  <aside id="historySidebar" class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-logo"><span class="dot"></span><span class="sidebar-text">Owen AI</span></div>
+      <button id="sidebarToggle" class="sidebar-close" type="button" title="Close sidebar">×</button>
+    </div>
+    <div class="sidebar-nav">
+      <button id="newChatBtn" class="sidebar-action" type="button">✎ <span class="sidebar-text">New chat</span></button>
+      <label class="sidebar-action">⌕ <input id="chatSearch" class="sidebar-search" placeholder="Search chats" /></label>
+    </div>
+    <select id="chatSelect" hidden></select>
+    <div class="sidebar-label">Recents</div>
+    <div id="recentChatList" class="recent-list"></div>
+    <button id="deleteChatBtn" type="button" hidden>Delete Chat</button>
+    <button id="closeSidebarBtn" type="button" hidden>Close</button>
+    <div class="sidebar-user"><span>●</span><span class="sidebar-text" id="sidebarUserName">Guest</span></div>
+  </aside>
   <main class="app">
     <header class="header">
       <div class="brand">
@@ -269,58 +548,148 @@
       </div>
       <div class="auth">
         <span id="welcomeUser" class="welcome"></span>
-        <button onclick="goToLogin()">Login / Sign up</button>
+        <button id="loginBtn" onclick="goToLogin()">Login / Sign up</button>
       </div>
     </header>
 
     <section id="chatbox"></section>
 
-    <div id="typingIndicator" class="typing" aria-live="polite">
-      <span class="bubble"></span>
-      <span class="bubble"></span>
-      <span class="bubble"></span>
-      <span>Owen is thinking…</span>
-    </div>
-
+    <div class="composer-wrap">
+    <div id="attachmentsPreview" class="attachments-preview"></div>
     <div class="composer">
-      <input id="imageInput" type="file" accept="image/*" hidden onchange="handleImageFile(event)" />
-      <button class="icon-btn" id="imageBtn" onclick="pickImage()" title="Upload image" hidden>📷</button>
+      <input id="fileInput" type="file" hidden onchange="handleFile(event)" />
       <input
         id="userInput"
         placeholder="Message Owen.Ai…"
         onkeydown="if(event.key==='Enter') sendMessage();"
       />
       <button id="sendBtn" onclick="sendMessage()">Send</button>
+      <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
+    </div>
     </div>
   </main>
+  </div>
 
   <script>
     const chatbox = document.getElementById("chatbox");
-    const typingIndicator = document.getElementById("typingIndicator");
     const input = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
-    const imageBtn = document.getElementById("imageBtn");
-    const imageInput = document.getElementById("imageInput");
+    const loginBtn = document.getElementById("loginBtn");
+    const chatLayout = document.getElementById("chatLayout");
+    const sidebarToggle = document.getElementById("sidebarToggle");
+    const sidebarOpenBtn = document.getElementById("sidebarOpenBtn");
+    const historySidebar = document.getElementById("historySidebar");
+    const chatSelect = document.getElementById("chatSelect");
+    const chatSearch = document.getElementById("chatSearch");
+    const recentChatList = document.getElementById("recentChatList");
+    const newChatBtn = document.getElementById("newChatBtn");
+    const deleteChatBtn = document.getElementById("deleteChatBtn");
+    const closeSidebarBtn = document.getElementById("closeSidebarBtn");
+    const sidebarUserName = document.getElementById("sidebarUserName");
+    const fileBtn = document.getElementById("fileBtn");
+    const fileInput = document.getElementById("fileInput");
+    const attachmentsPreview = document.getElementById("attachmentsPreview");
     let isLoading = false;
     let currentUser = localStorage.getItem("owen_user") || "";
+    let currentDisplayName = localStorage.getItem("owen_user_name") || currentUser;
     let pendingImage = null;
+    let pendingFile = null;
+    let currentChatId = "";
 
     function isLoggedIn() {
       return Boolean(currentUser);
     }
 
     function historyKey() {
-      return `owen_chat_${currentUser}`;
+      return `owen_chats_${currentUser}`;
+    }
+    function chatsIndexKey() {
+      return `owen_chat_index_${currentUser}`;
+    }
+    function activeChatKey() {
+      return `owen_active_chat_${currentUser}`;
+    }
+    function getChatIndex() {
+      try { return JSON.parse(localStorage.getItem(chatsIndexKey()) || "[]"); } catch { return []; }
+    }
+    function saveChatIndex(index) {
+      localStorage.setItem(chatsIndexKey(), JSON.stringify(index));
+    }
+    function createChat() {
+      const id = `chat_${Date.now()}`;
+      const index = getChatIndex();
+      index.unshift({ id, title: "New chat", updatedAt: Date.now() });
+      saveChatIndex(index.slice(0, 30));
+      const chats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      chats[id] = [];
+      localStorage.setItem(historyKey(), JSON.stringify(chats));
+      currentChatId = id;
+      localStorage.setItem(activeChatKey(), id);
+      renderChatSelector();
+      renderHistory();
+    }
+    function deleteChat(chatId, event) {
+      if (event) event.stopPropagation();
+      if (!chatId) return;
+      const index = getChatIndex().filter(x => x.id !== chatId);
+      saveChatIndex(index);
+      const chats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      delete chats[chatId];
+      localStorage.setItem(historyKey(), JSON.stringify(chats));
+      if (currentChatId === chatId) currentChatId = index[0]?.id || "";
+      if (!currentChatId && isLoggedIn()) return createChat();
+      localStorage.setItem(activeChatKey(), currentChatId);
+      renderChatSelector();
+      renderHistory();
+    }
+
+    function deleteCurrentChat() {
+      deleteChat(currentChatId);
+    }
+    function renderChatSelector() {
+      if (!isLoggedIn()) return;
+      const searchTerm = chatSearch.value.trim().toLowerCase();
+      const index = getChatIndex();
+      chatSelect.innerHTML = "";
+      recentChatList.innerHTML = "";
+      index.forEach(chat => {
+        const opt = document.createElement("option");
+        opt.value = chat.id;
+        opt.textContent = chat.title;
+        chatSelect.appendChild(opt);
+        if (searchTerm && !chat.title.toLowerCase().includes(searchTerm)) return;
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = `chat-row${chat.id === currentChatId ? " active" : ""}`;
+        row.onclick = () => {
+          currentChatId = chat.id;
+          localStorage.setItem(activeChatKey(), currentChatId);
+          renderChatSelector();
+          renderHistory();
+        };
+        const title = document.createElement("span");
+        title.className = "chat-title-text";
+        title.textContent = chat.title;
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "delete-chat-inline";
+        del.textContent = "×";
+        del.title = "Delete chat";
+        del.onclick = event => deleteChat(chat.id, event);
+        row.append(title, del);
+        recentChatList.appendChild(row);
+      });
+      chatSelect.value = currentChatId || index[0]?.id || "";
     }
 
     function renderHistory() {
       chatbox.innerHTML = "";
       if (!isLoggedIn()) return;
-      const raw = localStorage.getItem(historyKey());
-      if (!raw) return;
+      const raw = localStorage.getItem(historyKey()) || "{}";
       try {
-        const items = JSON.parse(raw);
+        const allChats = JSON.parse(raw);
+        const items = allChats[currentChatId] || [];
         if (!Array.isArray(items)) return;
         items.forEach(item => appendMessage(item.role, item.text, item.type || "", false));
       } catch (error) {
@@ -330,36 +699,229 @@
 
     function saveMessage(role, text, type = "") {
       if (!isLoggedIn()) return;
-      const raw = localStorage.getItem(historyKey());
+      const raw = localStorage.getItem(historyKey()) || "{}";
       let items = [];
       try {
-        items = raw ? JSON.parse(raw) : [];
+        const allChats = JSON.parse(raw);
+        items = Array.isArray(allChats[currentChatId]) ? allChats[currentChatId] : [];
       } catch (error) {
         items = [];
       }
       items.push({ role, text, type, ts: Date.now() });
       items = items.slice(-100);
-      localStorage.setItem(historyKey(), JSON.stringify(items));
+      const allChats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
+      allChats[currentChatId] = items;
+      localStorage.setItem(historyKey(), JSON.stringify(allChats));
+      const index = getChatIndex();
+      const firstUserMsg = items.find(x => x.role === "You" && x.text)?.text || "New chat";
+      const existing = index.find(x => x.id === currentChatId);
+      if (existing) {
+        existing.title = firstUserMsg.slice(0, 28);
+        existing.updatedAt = Date.now();
+      }
+      saveChatIndex(index.sort((a, b) => b.updatedAt - a.updatedAt));
+      renderChatSelector();
     }
 
     function refreshAuthUi() {
       const loggedIn = isLoggedIn();
-      welcomeUser.textContent = loggedIn ? `Hi, ${currentUser}` : "Guest mode";
-      imageBtn.hidden = !loggedIn;
+      welcomeUser.textContent = loggedIn ? `Hi, ${currentDisplayName}` : "Guest mode";
+      fileBtn.hidden = !loggedIn;
+      loginBtn.hidden = loggedIn;
+      chatSelect.hidden = !loggedIn;
+      newChatBtn.hidden = !loggedIn;
+      deleteChatBtn.hidden = !loggedIn;
+      sidebarToggle.hidden = !loggedIn;
+      historySidebar.hidden = false;
+      chatLayout.classList.toggle("guest", !loggedIn);
+      if (!loggedIn) chatLayout.classList.remove("sidebar-collapsed");
+      sidebarUserName.textContent = currentDisplayName || "Guest";
     }
 
     function goToLogin() {
-      window.location.href = "/login.html";
+      window.location.href = "/login";
+    }
+
+    function applyInlineMarkdown(text) {
+      let html = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+      html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+      html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      return html;
+    }
+
+    function renderMarkdownBlock(container, text) {
+      const lines = text.split("\n");
+      let listEl = null;
+      lines.forEach(rawLine => {
+        const line = rawLine.trimEnd();
+        if (!line.trim()) {
+          listEl = null;
+          return;
+        }
+        const heading = line.match(/^(#{1,3})\s+(.+)/);
+        if (heading) {
+          const level = Math.min(3, heading[1].length);
+          const el = document.createElement(`h${level}`);
+          el.innerHTML = applyInlineMarkdown(heading[2]);
+          container.appendChild(el);
+          listEl = null;
+          return;
+        }
+        const bullet = line.match(/^[-*]\s+(.+)/);
+        if (bullet) {
+          if (!listEl) {
+            listEl = document.createElement("ul");
+            container.appendChild(listEl);
+          }
+          const li = document.createElement("li");
+          li.innerHTML = applyInlineMarkdown(bullet[1]);
+          listEl.appendChild(li);
+          return;
+        }
+        const quote = line.match(/^>\s+(.+)/);
+        if (quote) {
+          const bq = document.createElement("blockquote");
+          bq.innerHTML = applyInlineMarkdown(quote[1]);
+          container.appendChild(bq);
+          listEl = null;
+          return;
+        }
+        const p = document.createElement("p");
+        p.innerHTML = applyInlineMarkdown(line);
+        container.appendChild(p);
+        listEl = null;
+      });
+    }
+
+
+    function downloadCodeFile(code, lang) {
+      const extensions = {
+        html: "html",
+        htm: "html",
+        css: "css",
+        js: "js",
+        javascript: "js",
+        json: "json",
+        py: "py",
+        python: "py",
+        ts: "ts",
+        typescript: "ts",
+        jsx: "jsx",
+        tsx: "tsx"
+      };
+      const extension = extensions[lang] || "txt";
+      const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `owen-ai-code.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderAssistantMessage(div, text) {
+      div.textContent = "";
+      const regex = /```([\w-]*)\n([\s\S]*?)```/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const plain = text.slice(lastIndex, match.index);
+        if (plain.trim()) renderMarkdownBlock(div, plain);
+
+        const lang = match[1] || "code";
+        const normalizedLang = lang.toLowerCase();
+        const code = match[2] || "";
+        const wrap = document.createElement("div");
+        wrap.className = "code-block";
+        const header = document.createElement("div");
+        header.className = "code-header";
+        const label = document.createElement("span");
+        label.textContent = lang;
+        const actions = document.createElement("div");
+        actions.className = "code-actions";
+        const copyBtn = document.createElement("button");
+        copyBtn.textContent = "Copy code";
+        copyBtn.onclick = async () => {
+          await navigator.clipboard.writeText(code);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => { copyBtn.textContent = "Copy code"; }, 1200);
+        };
+        const downloadBtn = document.createElement("button");
+        downloadBtn.textContent = "Download";
+        downloadBtn.onclick = () => downloadCodeFile(code, normalizedLang);
+        actions.append(copyBtn, downloadBtn);
+        header.append(label, actions);
+        const pre = document.createElement("pre");
+        pre.className = "code-source show";
+        pre.textContent = code;
+        wrap.append(header, pre);
+
+        if (normalizedLang === "html" || normalizedLang === "htm") {
+          const previewBtn = document.createElement("button");
+          previewBtn.textContent = "Preview";
+          const codeBtn = document.createElement("button");
+          codeBtn.textContent = "Code";
+          codeBtn.className = "active";
+          actions.prepend(previewBtn, codeBtn);
+          const preview = document.createElement("iframe");
+          preview.className = "code-preview";
+          preview.title = "HTML preview";
+          preview.srcdoc = code;
+          wrap.appendChild(preview);
+          previewBtn.onclick = () => {
+            preview.classList.add("show");
+            pre.classList.add("hide");
+            codeBtn.classList.remove("active");
+            previewBtn.classList.add("active");
+          };
+          codeBtn.onclick = () => {
+            preview.classList.remove("show");
+            pre.classList.remove("hide");
+            previewBtn.classList.remove("active");
+            codeBtn.classList.add("active");
+          };
+        }
+
+        div.appendChild(wrap);
+        lastIndex = regex.lastIndex;
+      }
+      const tail = text.slice(lastIndex);
+      if (tail.trim()) renderMarkdownBlock(div, tail);
     }
 
     function appendMessage(role, text, type = "", save = true) {
       const div = document.createElement("div");
       const baseClass = role === "You" ? "msg user" : "msg bot";
       div.className = type === "error" ? "msg error" : baseClass;
-      div.textContent = text;
+      if (role === "You" || type === "error") {
+        div.textContent = text;
+      } else {
+        renderAssistantMessage(div, text);
+      }
       chatbox.appendChild(div);
       chatbox.scrollTop = chatbox.scrollHeight;
       if (save) saveMessage(role, text, type);
+      return div;
+    }
+
+    function renderAssistantLoader(div) {
+      div.textContent = "";
+      const loader = document.createElement("div");
+      loader.className = "ai-loader";
+      const spinner = document.createElement("span");
+      spinner.className = "ai-spinner";
+      const label = document.createElement("span");
+      label.className = "ai-loader-label";
+      label.textContent = "Owen is drafting…";
+      loader.append(spinner, label);
+      div.appendChild(loader);
     }
 
     function appendImagePreview(dataUrl, save = true) {
@@ -381,13 +943,27 @@
       isLoading = loading;
       sendBtn.disabled = loading;
       input.disabled = loading;
-      typingIndicator.classList.toggle("show", loading);
       if (!loading) input.focus();
     }
 
-    function pickImage() {
+    function pickFile() {
       if (!isLoggedIn()) return;
-      imageInput.click();
+      fileInput.click();
+    }
+    function renderAttachmentChips() {
+      attachmentsPreview.innerHTML = "";
+      if (pendingImage?.fileName) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `🖼 ${pendingImage.fileName}`;
+        attachmentsPreview.appendChild(chip);
+      }
+      if (pendingFile?.name && !(pendingImage?.fileName && pendingFile.name === pendingImage.fileName)) {
+        const chip = document.createElement("div");
+        chip.className = "attach-chip";
+        chip.textContent = `📄 ${pendingFile.name}`;
+        attachmentsPreview.appendChild(chip);
+      }
     }
 
     function readFileAsDataUrl(file) {
@@ -399,18 +975,24 @@
       });
     }
 
-    async function handleImageFile(event) {
+    async function handleFile(event) {
       if (!isLoggedIn()) return;
       const file = event.target.files?.[0];
       if (!file) return;
-      const dataUrl = await readFileAsDataUrl(file);
-      const base64 = String(dataUrl).split(",")[1] || "";
-      pendingImage = {
-        mimeType: file.type || "image/png",
-        data: base64,
-        preview: dataUrl
-      };
-      appendMessage("You", "📎 Image attached");
+      pendingFile = { name: file.name || "file" };
+      if (file.type && file.type.startsWith("image/")) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const base64 = String(dataUrl).split(",")[1] || "";
+        pendingImage = {
+          fileName: file.name || "image",
+          mimeType: file.type || "image/png",
+          data: base64,
+          preview: dataUrl
+        };
+      } else {
+        pendingImage = null;
+      }
+      renderAttachmentChips();
     }
 
     async function sendMessage() {
@@ -421,8 +1003,11 @@
 
       if (message) appendMessage("You", message);
       if (pendingImage?.preview) appendImagePreview(pendingImage.preview);
+      if (pendingFile?.name && !pendingImage?.preview) appendMessage("You", `📎 ${pendingFile.name}`);
       input.value = "";
       setLoading(true);
+      const botDiv = appendMessage("Owen.Ai", "", "", false);
+      renderAssistantLoader(botDiv);
 
       try {
         const response = await fetch("/chat", {
@@ -431,34 +1016,71 @@
           body: JSON.stringify({
             message,
             user: currentUser || "guest",
-            image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null
+            image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null,
+            fileName: pendingFile?.name || null
           })
         });
 
-        const data = await response.json().catch(() => ({}));
-
         if (!response.ok) {
-          appendMessage("Owen.Ai", data.reply || "Sorry—something went wrong.", "error");
+          const data = await response.json().catch(() => ({}));
+          botDiv.className = "msg error";
+          botDiv.textContent = data.reply || "Sorry—something went wrong.";
           return;
         }
+        let fullText = "";
+        let sseBuffer = "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
 
-        appendMessage("Owen.Ai", data.reply || "No response.");
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split("\n");
+          sseBuffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const payload = line.slice(6).trim();
+            if (!payload || payload === "[DONE]") continue;
+            const chunk = JSON.parse(payload);
+            if (chunk.grounded) {
+              const loaderLabel = botDiv.querySelector(".ai-loader-label");
+              if (loaderLabel) loaderLabel.textContent = "Fact checking response…";
+            }
+            if (chunk.delta) {
+              fullText += chunk.delta;
+              renderAssistantMessage(botDiv, fullText);
+              chatbox.scrollTop = chatbox.scrollHeight;
+            }
+          }
+        }
+        saveMessage("Owen.Ai", fullText || "No response.", "");
       } catch (error) {
-        appendMessage("Owen.Ai", "Sorry—there was a network error.", "error");
+        botDiv.className = "msg error";
+        botDiv.textContent = "Sorry—there was a network error.";
       } finally {
         pendingImage = null;
-        imageInput.value = "";
+        pendingFile = null;
+        attachmentsPreview.innerHTML = "";
+        fileInput.value = "";
         setLoading(false);
       }
     }
 
     window.onload = () => {
       refreshAuthUi();
+      if (isLoggedIn()) {
+        const index = getChatIndex();
+        if (!index.length) createChat();
+        currentChatId = localStorage.getItem(activeChatKey()) || index[0]?.id || currentChatId;
+        renderChatSelector();
+      }
       renderHistory();
 
       const firstMessage = localStorage.getItem("firstMessage");
       if (firstMessage) {
         localStorage.removeItem("firstMessage");
+        if (isLoggedIn() && !currentChatId) createChat();
         input.value = firstMessage;
         sendMessage();
       }
@@ -466,24 +1088,44 @@
 
     document.addEventListener("paste", async event => {
       if (!isLoggedIn()) return;
-      const items = event.clipboardData?.items || [];
+	      const items = event.clipboardData?.items || [];
       for (const item of items) {
         if (item.type && item.type.startsWith("image/")) {
           const file = item.getAsFile();
           if (!file) return;
           const dataUrl = await readFileAsDataUrl(file);
           const base64 = String(dataUrl).split(",")[1] || "";
-          pendingImage = {
+	          pendingImage = {
+            fileName: file.name || "pasted-image",
             mimeType: file.type || "image/png",
             data: base64,
             preview: dataUrl
-          };
-          appendMessage("You", "📎 Image pasted");
+	          };
+            pendingFile = { name: file.name || "pasted-image.png" };
+	          renderAttachmentChips();
           event.preventDefault();
           return;
         }
       }
-    });
+	    });
+      chatSelect.addEventListener("change", () => {
+        currentChatId = chatSelect.value;
+        localStorage.setItem(activeChatKey(), currentChatId);
+        renderChatSelector();
+        renderHistory();
+      });
+      chatSearch.addEventListener("input", renderChatSelector);
+      newChatBtn.addEventListener("click", createChat);
+      deleteChatBtn.addEventListener("click", deleteCurrentChat);
+      sidebarToggle.addEventListener("click", () => {
+        chatLayout.classList.add("sidebar-collapsed");
+      });
+      sidebarOpenBtn.addEventListener("click", () => {
+        chatLayout.classList.remove("sidebar-collapsed");
+      });
+      closeSidebarBtn.addEventListener("click", () => {
+        chatLayout.classList.add("sidebar-collapsed");
+      });
 
   </script>
 </body>
