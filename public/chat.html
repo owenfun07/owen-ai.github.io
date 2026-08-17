@@ -72,6 +72,7 @@
       justify-content: space-between;
       gap: 10px;
     }
+    .chat-controls { display: flex; gap: 8px; }
 
     .brand {
       display: flex;
@@ -393,6 +394,9 @@
       <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
     </div>
     </div>
+    </div>
+    </div>
+    <div class="tokens" id="tokensLeft">Global tokens left: --</div>
   </main>
   </div>
 
@@ -899,6 +903,18 @@
         historySidebar.classList.remove("show");
       });
 
+    chatSelect.addEventListener("change", () => {
+      currentChatId = chatSelect.value;
+      renderHistory();
+    });
+    newChatBtn.addEventListener("click", createChat);
+    deleteChatBtn.addEventListener("click", deleteCurrentChat);
+    sidebarToggle.addEventListener("click", () => {
+      historySidebar.classList.toggle("show");
+    });
+    closeSidebarBtn.addEventListener("click", () => {
+      historySidebar.classList.remove("show");
+    });
   </script>
 </body>
 </html>
