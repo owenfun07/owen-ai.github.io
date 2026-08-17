@@ -36,12 +36,12 @@
       width: 100vw;
       height: 100vh;
       display: grid;
-      grid-template-columns: 280px 1fr;
+      grid-template-columns: 280px minmax(0, 1fr);
       transition: grid-template-columns 180ms ease;
     }
 
     .layout.sidebar-collapsed {
-      grid-template-columns: 0 1fr;
+      grid-template-columns: 0 minmax(0, 1fr);
     }
 
     .layout.guest {
@@ -49,6 +49,7 @@
     }
 
     .sidebar {
+      grid-column: 1;
       min-width: 0;
       background: rgba(16, 17, 20, 0.96);
       border-right: 1px solid rgba(255,255,255,0.1);
@@ -185,6 +186,32 @@
       display: none;
     }
 
+
+
+    @media (max-width: 820px) {
+      .layout,
+      .layout.sidebar-collapsed,
+      .layout.guest {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: min(280px, 86vw);
+        height: 100vh;
+        box-shadow: 18px 0 40px rgba(0,0,0,0.35);
+      }
+
+      .layout.sidebar-collapsed .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .app {
+        grid-column: 1;
+      }
+    }
+
     .chat-row {
       border-radius: 10px;
       background: transparent;
@@ -254,6 +281,8 @@
     .sidebar-close { float: right; min-width: 34px; }
 
     .app {
+      grid-column: 2;
+      min-width: 0;
       width: 100%;
       height: 100vh;
       background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
@@ -262,6 +291,10 @@
       grid-template-rows: auto 1fr auto;
       overflow: hidden;
       animation: fadeInUp 450ms ease;
+    }
+
+    .layout.guest .app {
+      grid-column: 1;
     }
 
     .header {
@@ -603,7 +636,6 @@
       <button class="icon-btn" id="fileBtn" onclick="pickFile()" title="Upload file" hidden>📎</button>
     </div>
     </div>
-    </div>
     <div class="tokens" id="tokensLeft">Global tokens left: --</div>
   </main>
   </div>
@@ -770,8 +802,9 @@
       newChatBtn.hidden = !loggedIn;
       deleteChatBtn.hidden = !loggedIn;
       sidebarToggle.hidden = !loggedIn;
-      historySidebar.hidden = !loggedIn;
+      historySidebar.hidden = false;
       chatLayout.classList.toggle("guest", !loggedIn);
+      if (!loggedIn) chatLayout.classList.remove("sidebar-collapsed");
       sidebarUserName.textContent = currentDisplayName || "Guest";
     }
 
