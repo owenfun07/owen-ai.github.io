@@ -32,6 +32,142 @@
                   radial-gradient(1000px 700px at 100% 0%, #0d6e8f 0%, transparent 55%),
                   var(--bg);
     }
+    .layout {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      transition: grid-template-columns 180ms ease;
+    }
+
+    .layout.sidebar-collapsed {
+      grid-template-columns: 72px 1fr;
+    }
+
+    .layout.guest {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      min-width: 0;
+      background: rgba(16, 17, 20, 0.96);
+      border-right: 1px solid rgba(255,255,255,0.1);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+      z-index: 20;
+    }
+
+    .layout.guest .sidebar {
+      display: none;
+    }
+
+    .sidebar-top,
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .sidebar-nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sidebar-action,
+    .chat-row {
+      width: 100%;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      min-height: 36px;
+      padding: 0 12px;
+      text-align: left;
+    }
+
+    .sidebar-search {
+      width: 100%;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      outline: none;
+      font-size: 14px;
+    }
+
+    .sidebar-label {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 12px 4px 4px;
+    }
+
+    .recent-list {
+      display: grid;
+      gap: 4px;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .chat-row {
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      position: relative;
+      padding-right: 38px;
+    }
+
+    .chat-row.active,
+    .chat-row:hover {
+      background: rgba(255,255,255,0.09);
+    }
+
+    .chat-title-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .delete-chat-inline {
+      position: absolute;
+      right: 4px;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      padding: 0;
+      background: transparent;
+      opacity: 0.7;
+    }
+
+    .sidebar-user {
+      margin-top: auto;
+      color: var(--text);
+      min-height: 38px;
+    }
+
+    .layout.sidebar-collapsed .sidebar {
+      align-items: center;
+    }
+
+    .layout.sidebar-collapsed .sidebar-text,
+    .layout.sidebar-collapsed .sidebar-search,
+    .layout.sidebar-collapsed .sidebar-label,
+    .layout.sidebar-collapsed .recent-list,
+    .layout.sidebar-collapsed .sidebar-user {
+      display: none;
+    }
     .layout { width: 100vw; height: 100vh; position: relative; display: grid; place-items: stretch; }
     .sidebar {
       width: min(240px, 82vw);
@@ -355,14 +491,23 @@
   </style>
 </head>
   <body>
-  <div class="layout">
-    <button id="sidebarToggle" class="sidebar-toggle">Chats</button>
+  <div class="layout" id="chatLayout">
   <aside id="historySidebar" class="sidebar">
-    <button id="closeSidebarBtn" class="sidebar-close" type="button">✕</button>
-    <h3 style="margin:0 0 8px 0;">Chat History</h3>
-    <select id="chatSelect" style="width:100%; margin-bottom:8px;"></select>
-    <button id="newChatBtn" type="button" style="width:100%; margin-bottom:8px;">New Chat</button>
-    <button id="deleteChatBtn" type="button" style="width:100%; background:#5b2231;">Delete Chat</button>
+    <div class="sidebar-top">
+      <div class="sidebar-logo"><span class="dot"></span><span class="sidebar-text">Owen AI</span></div>
+      <button id="sidebarToggle" class="sidebar-close" type="button" title="Collapse sidebar">☰</button>
+    </div>
+    <div class="sidebar-nav">
+      <button id="newChatBtn" class="sidebar-action" type="button">✎ <span class="sidebar-text">New chat</span></button>
+      <label class="sidebar-action">⌕ <input id="chatSearch" class="sidebar-search" placeholder="Search chats" /></label>
+      <button class="sidebar-action" type="button">◌ <span class="sidebar-text">Library</span></button>
+    </div>
+    <select id="chatSelect" hidden></select>
+    <div class="sidebar-label">Recents</div>
+    <div id="recentChatList" class="recent-list"></div>
+    <button id="deleteChatBtn" type="button" hidden>Delete Chat</button>
+    <button id="closeSidebarBtn" type="button" hidden>Close</button>
+    <div class="sidebar-user"><span>●</span><span class="sidebar-text" id="sidebarUserName">Guest</span><span>⚙</span></div>
   </aside>
   <main class="app">
     <header class="header">
@@ -396,6 +541,7 @@
     </div>
     </div>
     </div>
+    </div>
     <div class="tokens" id="tokensLeft">Global tokens left: --</div>
   </main>
   </div>
@@ -406,12 +552,16 @@
     const sendBtn = document.getElementById("sendBtn");
     const welcomeUser = document.getElementById("welcomeUser");
     const loginBtn = document.getElementById("loginBtn");
+    const chatLayout = document.getElementById("chatLayout");
     const sidebarToggle = document.getElementById("sidebarToggle");
     const historySidebar = document.getElementById("historySidebar");
     const chatSelect = document.getElementById("chatSelect");
+    const chatSearch = document.getElementById("chatSearch");
+    const recentChatList = document.getElementById("recentChatList");
     const newChatBtn = document.getElementById("newChatBtn");
     const deleteChatBtn = document.getElementById("deleteChatBtn");
     const closeSidebarBtn = document.getElementById("closeSidebarBtn");
+    const sidebarUserName = document.getElementById("sidebarUserName");
     const fileBtn = document.getElementById("fileBtn");
     const fileInput = document.getElementById("fileInput");
     const attachmentsPreview = document.getElementById("attachmentsPreview");
@@ -432,6 +582,9 @@
     function chatsIndexKey() {
       return `owen_chat_index_${currentUser}`;
     }
+    function activeChatKey() {
+      return `owen_active_chat_${currentUser}`;
+    }
     function getChatIndex() {
       try { return JSON.parse(localStorage.getItem(chatsIndexKey()) || "[]"); } catch { return []; }
     }
@@ -447,30 +600,60 @@
       chats[id] = [];
       localStorage.setItem(historyKey(), JSON.stringify(chats));
       currentChatId = id;
+      localStorage.setItem(activeChatKey(), id);
       renderChatSelector();
       renderHistory();
     }
-    function deleteCurrentChat() {
-      if (!currentChatId) return;
-      const index = getChatIndex().filter(x => x.id !== currentChatId);
+    function deleteChat(chatId, event) {
+      if (event) event.stopPropagation();
+      if (!chatId) return;
+      const index = getChatIndex().filter(x => x.id !== chatId);
       saveChatIndex(index);
       const chats = JSON.parse(localStorage.getItem(historyKey()) || "{}");
-      delete chats[currentChatId];
+      delete chats[chatId];
       localStorage.setItem(historyKey(), JSON.stringify(chats));
-      currentChatId = index[0]?.id || "";
+      if (currentChatId === chatId) currentChatId = index[0]?.id || "";
       if (!currentChatId && isLoggedIn()) return createChat();
+      localStorage.setItem(activeChatKey(), currentChatId);
       renderChatSelector();
       renderHistory();
+    }
+
+    function deleteCurrentChat() {
+      deleteChat(currentChatId);
     }
     function renderChatSelector() {
       if (!isLoggedIn()) return;
+      const searchTerm = chatSearch.value.trim().toLowerCase();
       const index = getChatIndex();
       chatSelect.innerHTML = "";
+      recentChatList.innerHTML = "";
       index.forEach(chat => {
         const opt = document.createElement("option");
         opt.value = chat.id;
         opt.textContent = chat.title;
         chatSelect.appendChild(opt);
+        if (searchTerm && !chat.title.toLowerCase().includes(searchTerm)) return;
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = `chat-row${chat.id === currentChatId ? " active" : ""}`;
+        row.onclick = () => {
+          currentChatId = chat.id;
+          localStorage.setItem(activeChatKey(), currentChatId);
+          renderChatSelector();
+          renderHistory();
+        };
+        const title = document.createElement("span");
+        title.className = "chat-title-text";
+        title.textContent = chat.title;
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "delete-chat-inline";
+        del.textContent = "×";
+        del.title = "Delete chat";
+        del.onclick = event => deleteChat(chat.id, event);
+        row.append(title, del);
+        recentChatList.appendChild(row);
       });
       chatSelect.value = currentChatId || index[0]?.id || "";
     }
@@ -524,6 +707,9 @@
       newChatBtn.hidden = !loggedIn;
       deleteChatBtn.hidden = !loggedIn;
       sidebarToggle.hidden = !loggedIn;
+      historySidebar.hidden = !loggedIn;
+      chatLayout.classList.toggle("guest", !loggedIn);
+      sidebarUserName.textContent = currentDisplayName || "Guest";
     }
 
     function goToLogin() {
@@ -855,7 +1041,7 @@
       if (isLoggedIn()) {
         const index = getChatIndex();
         if (!index.length) createChat();
-        currentChatId = index[0]?.id || currentChatId;
+        currentChatId = localStorage.getItem(activeChatKey()) || index[0]?.id || currentChatId;
         renderChatSelector();
       }
       renderHistory();
@@ -863,6 +1049,7 @@
       const firstMessage = localStorage.getItem("firstMessage");
       if (firstMessage) {
         localStorage.removeItem("firstMessage");
+        if (isLoggedIn() && !currentChatId) createChat();
         input.value = firstMessage;
         sendMessage();
       }
@@ -892,15 +1079,18 @@
 	    });
       chatSelect.addEventListener("change", () => {
         currentChatId = chatSelect.value;
+        localStorage.setItem(activeChatKey(), currentChatId);
+        renderChatSelector();
         renderHistory();
       });
+      chatSearch.addEventListener("input", renderChatSelector);
       newChatBtn.addEventListener("click", createChat);
       deleteChatBtn.addEventListener("click", deleteCurrentChat);
       sidebarToggle.addEventListener("click", () => {
-        historySidebar.classList.toggle("show");
+        chatLayout.classList.toggle("sidebar-collapsed");
       });
       closeSidebarBtn.addEventListener("click", () => {
-        historySidebar.classList.remove("show");
+        chatLayout.classList.add("sidebar-collapsed");
       });
 
     chatSelect.addEventListener("change", () => {
