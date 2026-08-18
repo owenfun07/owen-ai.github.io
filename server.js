@@ -494,7 +494,7 @@ app.get("/debug-gemini", async (req, res) => {
     const payload = {
       systemInstruction: { parts: [{ text: "You are a debug assistant. Reply with one short sentence." }] },
       contents: [{ role: "user", parts: [{ text: "Say hello and include the word DEBUG." }] }],
-      generationConfig: { maxOutputTokens: 60 }
+      generationConfig: { maxOutputTokens: 80 }
     };
 
     const response = await fetch(buildGeminiUrl(), {
