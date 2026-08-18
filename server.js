@@ -26,8 +26,6 @@ const SYSTEM_INSTRUCTION = [
 ].join(" ");
 const DAILY_TOKEN_BUDGET = Number(process.env.DAILY_TOKEN_BUDGET || 250000);
 
-let memory = [];
-const MAX_MEMORY_MESSAGES = 10;
 let globalUsedOutputTokens = 0;
 
 function buildGeminiUrl(stream = false) {
@@ -242,6 +240,7 @@ app.post("/chat", async (req, res) => {
     }
 
     const userMessage = req.body?.message?.trim() || "";
+    const history = req.body?.history || [];
     const image = req.body?.image || null;
     const hasImage = Boolean(image?.data && image?.mimeType);
 
@@ -258,7 +257,14 @@ app.post("/chat", async (req, res) => {
     }
 
     const contents = [];
-    memory.forEach(m => contents.push({ role: m.role, parts: [{ text: m.text }] }));
+    if (Array.isArray(history)) {
+      history.forEach(m => {
+        if (m.role && m.text) {
+          contents.push({ role: m.role, parts: [{ text: String(m.text) }] });
+        }
+      });
+    }
+
     const userParts = [];
     if (userMessage) userParts.push({ text: userMessage });
     if (hasImage) {
@@ -269,7 +275,12 @@ app.post("/chat", async (req, res) => {
         }
       });
     }
-    contents.push({ role: "user", parts: userParts });
+
+    if (contents.length > 0 && contents[contents.length - 1].role === "user") {
+      contents[contents.length - 1].parts.push(...userParts);
+    } else {
+      contents.push({ role: "user", parts: userParts });
+    }
 
     const payload = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
@@ -400,9 +411,6 @@ app.post("/chat", async (req, res) => {
       return res.end(`data: ${JSON.stringify({ delta: "I couldn't generate a response.", usedOutputTokens })}\n\ndata: [DONE]\n\n`);
     }
 
-    memory.push({ role: "user", text: userMessage || "[User sent an image]" });
-    memory.push({ role: "model", text: fullText.trim() });
-    memory = memory.slice(-MAX_MEMORY_MESSAGES);
     globalUsedOutputTokens += usedOutputTokens;
     res.write(`data: ${JSON.stringify({ usedOutputTokens })}\n\n`);
     clearInterval(keepAlive);
