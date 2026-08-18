@@ -1021,6 +1021,26 @@
       const message = input.value.trim();
       if (!message && !pendingImage) return;
 
+      let chatHistory = [];
+      try {
+        const raw = localStorage.getItem(historyKey()) || "{}";
+        const allChats = JSON.parse(raw);
+        const items = allChats[currentChatId] || [];
+        
+        let lastRole = null;
+        for (const m of items.slice(-12)) {
+          const role = m.role === "You" ? "user" : "model";
+          const text = m.type === "image" ? "[Image attached]" : (m.text || "");
+          
+          if (role === lastRole && chatHistory.length > 0) {
+            chatHistory[chatHistory.length - 1].text += `\n${text}`;
+          } else {
+            chatHistory.push({ role, text });
+            lastRole = role;
+          }
+        }
+      } catch (e) {}
+
       if (message) appendMessage("You", message);
       if (pendingImage?.preview) appendImagePreview(pendingImage.preview);
       if (pendingFile?.name && !pendingImage?.preview) appendMessage("You", `📎 ${pendingFile.name}`);
@@ -1035,6 +1055,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message,
+            history: chatHistory,
             user: currentUser || "guest",
             image: pendingImage ? { mimeType: pendingImage.mimeType, data: pendingImage.data } : null,
             fileName: pendingFile?.name || null
